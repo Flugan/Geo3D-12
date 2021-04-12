@@ -3,11 +3,15 @@
 #include "proxydll.h"
 #include "resource.h"
 
+#include "..\Nektra\NktHookLib.h"
+
 // global variables
 #pragma data_seg (".d3d12_shared")
 HINSTANCE           gl_hOriginalDll = NULL;
 FILE*				gl_logFile = NULL;
-CRITICAL_SECTION	gl_CS;
+bool				gl_hookedDevice = false;
+
+CNktHookLib			cHookMgr;
 #pragma data_seg ()
 
 void log(const char* message) {
@@ -41,7 +45,7 @@ void ShowStartupScreen(HINSTANCE hinstDLL)
 			::DeleteDC(hMemDC);
 			::ReleaseDC(NULL, hDC);
 
-			// Wait 2 seconds before proceeding
+			// Wait before proceeding
 			::Beep(440, 500);
 		}
 		::DeleteObject(hBM);
@@ -75,12 +79,6 @@ BOOL WINAPI DllMain(
 		char cwd[MAX_PATH];
 		_getcwd(cwd, MAX_PATH);
 		log(cwd);
-		//InitializeCriticalSection(&gl_CS);
-		/*
-		do {
-			Sleep(250);
-		} while (!IsDebuggerPresent());
-		*/
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -99,6 +97,36 @@ BOOL WINAPI DllMain(
 	return result;
 }
 
+typedef HRESULT(STDMETHODCALLTYPE* D3D12_CGPS)(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC *pDesc, const IID &riid, void **ppPipelineState);
+static struct {
+	SIZE_T nHookId;
+	D3D12_CGPS fnCreateGraphicsPipelineState;
+} sCreateGraphicsPipelineState_Hook = { 0, NULL };
+HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	return sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState(This, pDesc, riid, ppPipelineState);
+}
+
+typedef HRESULT(STDMETHODCALLTYPE* D3D12_CCPS)(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState);
+static struct {
+	SIZE_T nHookId;
+	D3D12_CCPS fnCreateComputePipelineState;
+} sCreateComputePipelineState_Hook = { 1, NULL };
+HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	return sCreateComputePipelineState_Hook.fnCreateComputePipelineState(This, pDesc, riid, ppPipelineState);
+}
+
+void hookDevice(void** ppDevice) {
+	if (!gl_hookedDevice) {
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppDevice;
+
+		D3D12_CGPS origCGPS = (D3D12_CGPS)(*vTable)[10];
+		D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
+
+		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState), origCGPS, D3D12_CreateGraphicsPipelineState);
+		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
+	}
+}
+
 // Exports
 signed int WINAPI GetBehaviorValue(const char *a1, unsigned __int64 *a2) {
 	if (!gl_hOriginalDll) LoadOriginalDll();
@@ -113,7 +141,6 @@ HRESULT WINAPI D3D12CreateDevice(
 	_In_		REFIID				riid,
 	_Out_opt_	void				**ppDevice)
 {
-	//EnterCriticalSection(&gl_CS);
 	if (!gl_hOriginalDll) LoadOriginalDll();	
 	typedef HRESULT (WINAPI* D3D12_Type)(
 	IUnknown			*pAdapter,
@@ -123,7 +150,8 @@ HRESULT WINAPI D3D12CreateDevice(
 	D3D12_Type fn = (D3D12_Type) GetProcAddress( gl_hOriginalDll, 
 		"D3D12CreateDevice");
 	HRESULT res = fn(pAdapter, MinimumFeatureLevel, riid, ppDevice);
-	//LeaveCriticalSection(&gl_CS);
+	if (ppDevice != NULL)
+		hookDevice(ppDevice);
 	return res;
 } // 101
 
