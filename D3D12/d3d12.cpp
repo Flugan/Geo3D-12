@@ -2,22 +2,35 @@
 #include "stdafx.h"
 #include "proxydll.h"
 #include "resource.h"
-
+#include "..\log.h"
 #include "..\Nektra\NktHookLib.h"
 
 // global variables
 #pragma data_seg (".d3d12_shared")
 HINSTANCE           gl_hOriginalDll = NULL;
-FILE*				gl_logFile = NULL;
 bool				gl_hookedDevice = false;
-
+FILE*				LogFile = NULL;
+bool				gLogDebug = false;
+bool				gl_dumpBin = true;
 CNktHookLib			cHookMgr;
 #pragma data_seg ()
 
-void log(const char* message) {
-	fputs(message, gl_logFile);
-	fputs("\n", gl_logFile);
-	fflush(gl_logFile);
+// 64 bit magic FNV-0 and FNV-1 prime
+#define FNV_64_PRIME ((UINT64)0x100000001b3ULL)
+static UINT64 fnv_64_buf(const void* buf, size_t len)
+{
+	UINT64 hval = 0;
+	unsigned const char* bp = (unsigned const char*)buf;	/* start of buffer */
+	unsigned const char* be = bp + len;		/* beyond end of buffer */
+
+	// FNV-1 hash each octet of the buffer
+	while (bp < be) {
+		// multiply by the 64 bit FNV magic prime mod 2^64 */
+		hval *= FNV_64_PRIME;
+		// xor the bottom with the current octet
+		hval ^= (UINT64)*bp++;
+	}
+	return hval;
 }
 
 void ShowStartupScreen(HINSTANCE hinstDLL)
@@ -73,12 +86,12 @@ BOOL WINAPI DllMain(
 	case DLL_PROCESS_ATTACH:
 		ShowStartupScreen(hinstDLL);
 		::CreateDirectory("c:\\Flugan", NULL);
-		gl_logFile = _fsopen("c:\\Flugan\\Log_dx12.txt", "w", _SH_DENYNO);
-		setvbuf(gl_logFile, NULL, _IONBF, 0);
-		log("Project Flugan loaded:");
+		LogFile = _fsopen("c:\\Flugan\\Log_dx12.txt", "w", _SH_DENYNO);
+		setvbuf(LogFile, NULL, _IONBF, 0);
+		LogInfo("Project Flugan loaded:\n");
 		char cwd[MAX_PATH];
 		_getcwd(cwd, MAX_PATH);
-		log(cwd);
+		LogInfo("%s\n", cwd);
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -103,6 +116,63 @@ static struct {
 	D3D12_CGPS fnCreateGraphicsPipelineState;
 } sCreateGraphicsPipelineState_Hook = { 0, NULL };
 HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	FILE* f;
+	char path[MAX_PATH];
+	if (gl_dumpBin) {
+		strcat_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache");
+		CreateDirectory(path, NULL);
+	}
+	if (pDesc->VS.BytecodeLength > 0) {
+		UINT64 crc = fnv_64_buf(pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
+		LogInfo("VertexShader: %016llX\n", crc);
+		
+		if (gl_dumpBin) {
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-vs.bin", crc);
+			fopen_s(&f, path, "wb");
+			fwrite(pDesc->VS.pShaderBytecode, 1, pDesc->VS.BytecodeLength, f);
+			fclose(f);
+		}
+	}
+	if (pDesc->PS.BytecodeLength > 0) {
+		UINT64 crc = fnv_64_buf(pDesc->PS.pShaderBytecode, pDesc->PS.BytecodeLength);
+		LogInfo("PixelShader: %016llX\n", crc);
+		if (gl_dumpBin) {
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-ps.bin", crc);
+			fopen_s(&f, path, "wb");
+			fwrite(pDesc->PS.pShaderBytecode, 1, pDesc->PS.BytecodeLength, f);
+			fclose(f);
+		}
+	}
+	if (pDesc->DS.BytecodeLength > 0) {
+		UINT64 crc = fnv_64_buf(pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
+		LogInfo("DomainShader: %016llX\n", crc);
+		if (gl_dumpBin) {
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-ds.bin", crc);
+			fopen_s(&f, path, "wb");
+			fwrite(pDesc->DS.pShaderBytecode, 1, pDesc->DS.BytecodeLength, f);
+			fclose(f);
+		}
+	}
+	if (pDesc->GS.BytecodeLength > 0) {
+		UINT64 crc = fnv_64_buf(pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
+		LogInfo("GeometryShader: %016llX\n", crc);
+		if (gl_dumpBin) {
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-gs.bin", crc);
+			fopen_s(&f, path, "wb");
+			fwrite(pDesc->GS.pShaderBytecode, 1, pDesc->GS.BytecodeLength, f);
+			fclose(f);
+		}
+	}
+	if (pDesc->HS.BytecodeLength > 0) {
+		UINT64 crc = fnv_64_buf(pDesc->HS.pShaderBytecode, pDesc->HS.BytecodeLength);
+		LogInfo("HullShader: %016llX\n", crc);
+		if (gl_dumpBin) {
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-hs.bin", crc);
+			fopen_s(&f, path, "wb");
+			fwrite(pDesc->HS.pShaderBytecode, 1, pDesc->HS.BytecodeLength, f);
+			fclose(f);
+		}
+	}
 	return sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState(This, pDesc, riid, ppPipelineState);
 }
 
@@ -112,6 +182,22 @@ static struct {
 	D3D12_CCPS fnCreateComputePipelineState;
 } sCreateComputePipelineState_Hook = { 1, NULL };
 HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	FILE* f;
+	char path[MAX_PATH];
+	if (gl_dumpBin) {
+		strcat_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache");
+		CreateDirectory(path, NULL);
+	}
+	if (pDesc->CS.BytecodeLength > 0) {
+		UINT64 crc = fnv_64_buf(pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
+		LogInfo("ComputeShader: %016llX\n", crc);
+		if (gl_dumpBin) {
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-cs.bin", crc);
+			fopen_s(&f, path, "wb");
+			fwrite(pDesc->CS.pShaderBytecode, 1, pDesc->CS.BytecodeLength, f);
+			fclose(f);
+		}
+	}
 	return sCreateComputePipelineState_Hook.fnCreateComputePipelineState(This, pDesc, riid, ppPipelineState);
 }
 
@@ -247,7 +333,6 @@ HRESULT WINAPI D3D12CreateVersionedRootSignatureDeserializer(
 
 
 HRESULT WINAPI D3D12DeviceRemovedExtendedData() {
-	log("D3D12DeviceRemovedExtendedData");
 	if (!gl_hOriginalDll) LoadOriginalDll();
 	typedef HRESULT(WINAPI* D3D12_Type)();
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,
@@ -275,7 +360,6 @@ HRESULT WINAPI D3D12EnableExperimentalFeatures(
 } // 110
 
 HRESULT WINAPI D3D12GetInterface() {
-	log("D3D12GetInterface");
 	if (!gl_hOriginalDll) LoadOriginalDll();
 	typedef HRESULT(WINAPI* D3D12_Type)();
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,
@@ -285,7 +369,6 @@ HRESULT WINAPI D3D12GetInterface() {
 } // 111
 
 HRESULT WINAPI D3D12PIXEventsReplaceBlock(bool getEarliestTime) {
-	log("D3D12PIXEventsReplaceBlock");
 	if (!gl_hOriginalDll) LoadOriginalDll();
 	typedef HRESULT(WINAPI* D3D12_Type)(bool getEarliestTime);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,
@@ -295,7 +378,6 @@ HRESULT WINAPI D3D12PIXEventsReplaceBlock(bool getEarliestTime) {
 } // 112
 
 HRESULT WINAPI D3D12PIXGetThreadInfo() {
-	log("D3D12PIXGetThreadInfo");
 	if (!gl_hOriginalDll) LoadOriginalDll();
 	typedef HRESULT(WINAPI* D3D12_Type)();
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,
@@ -305,7 +387,6 @@ HRESULT WINAPI D3D12PIXGetThreadInfo() {
 } // 113
 
 HRESULT WINAPI D3D12PIXNotifyWakeFromFenceSignal(HANDLE event) {
-	log("D3D12PIXNotifyWakeFromFenceSignal");
 	if (!gl_hOriginalDll) LoadOriginalDll();
 	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE event);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,
@@ -315,7 +396,6 @@ HRESULT WINAPI D3D12PIXNotifyWakeFromFenceSignal(HANDLE event) {
 } // 114
 
 HRESULT WINAPI D3D12PIXReportCounter(wchar_t const* name, float value) {
-	log("D3D12PIXReportCounter");
 	if (!gl_hOriginalDll) LoadOriginalDll();
 	typedef HRESULT(WINAPI* D3D12_Type)(wchar_t const* name, float value);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,
