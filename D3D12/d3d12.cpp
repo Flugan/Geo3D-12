@@ -13,6 +13,7 @@ FILE*				LogFile = NULL;
 bool				gLogDebug = false;
 bool				gl_dumpBin = true;
 CNktHookLib			cHookMgr;
+CRITICAL_SECTION	gl_CS;
 #pragma data_seg ()
 
 // 64 bit magic FNV-0 and FNV-1 prime
@@ -59,7 +60,7 @@ void ShowStartupScreen(HINSTANCE hinstDLL)
 			::ReleaseDC(NULL, hDC);
 
 			// Wait before proceeding
-			::Beep(440, 500);
+			::Beep(440, 1000);
 		}
 		::DeleteObject(hBM);
 	}
@@ -84,6 +85,7 @@ BOOL WINAPI DllMain(
 
 	switch (fdwReason) {
 	case DLL_PROCESS_ATTACH:
+		InitializeCriticalSection(&gl_CS);
 		ShowStartupScreen(hinstDLL);
 		::CreateDirectory("c:\\Flugan", NULL);
 		LogFile = _fsopen("c:\\Flugan\\Log_dx12.txt", "w", _SH_DENYNO);
@@ -92,6 +94,11 @@ BOOL WINAPI DllMain(
 		char cwd[MAX_PATH];
 		_getcwd(cwd, MAX_PATH);
 		LogInfo("%s\n", cwd);
+		if (gl_dumpBin) {
+			char path[MAX_PATH];
+			strcat_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache");
+			CreateDirectory(path, NULL);
+		}
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -110,6 +117,16 @@ BOOL WINAPI DllMain(
 	return result;
 }
 
+int fileExists(TCHAR* file) {
+	WIN32_FIND_DATA FindFileData;
+	HANDLE handle = FindFirstFile(file, &FindFileData);
+	int found = handle != INVALID_HANDLE_VALUE;
+	if (found) {
+		FindClose(handle);
+	}
+	return found;
+}
+
 typedef HRESULT(STDMETHODCALLTYPE* D3D12_CGPS)(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC *pDesc, const IID &riid, void **ppPipelineState);
 static struct {
 	SIZE_T nHookId;
@@ -118,59 +135,69 @@ static struct {
 HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
 	FILE* f;
 	char path[MAX_PATH];
-	if (gl_dumpBin) {
-		strcat_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache");
-		CreateDirectory(path, NULL);
-	}
 	if (pDesc->VS.BytecodeLength > 0) {
 		UINT64 crc = fnv_64_buf(pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
-		LogInfo("VertexShader: %016llX\n", crc);
-		
 		if (gl_dumpBin) {
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-vs.bin", crc);
-			fopen_s(&f, path, "wb");
-			fwrite(pDesc->VS.pShaderBytecode, 1, pDesc->VS.BytecodeLength, f);
-			fclose(f);
+			EnterCriticalSection(&gl_CS);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				fwrite(pDesc->VS.pShaderBytecode, 1, pDesc->VS.BytecodeLength, f);
+				fclose(f);
+			}
+			LeaveCriticalSection(&gl_CS);
 		}
 	}
 	if (pDesc->PS.BytecodeLength > 0) {
 		UINT64 crc = fnv_64_buf(pDesc->PS.pShaderBytecode, pDesc->PS.BytecodeLength);
-		LogInfo("PixelShader: %016llX\n", crc);
 		if (gl_dumpBin) {
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-ps.bin", crc);
-			fopen_s(&f, path, "wb");
-			fwrite(pDesc->PS.pShaderBytecode, 1, pDesc->PS.BytecodeLength, f);
-			fclose(f);
+			EnterCriticalSection(&gl_CS);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				fwrite(pDesc->PS.pShaderBytecode, 1, pDesc->PS.BytecodeLength, f);
+				fclose(f);
+			}
+			LeaveCriticalSection(&gl_CS);
 		}
 	}
 	if (pDesc->DS.BytecodeLength > 0) {
 		UINT64 crc = fnv_64_buf(pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
-		LogInfo("DomainShader: %016llX\n", crc);
 		if (gl_dumpBin) {
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-ds.bin", crc);
-			fopen_s(&f, path, "wb");
-			fwrite(pDesc->DS.pShaderBytecode, 1, pDesc->DS.BytecodeLength, f);
-			fclose(f);
+			EnterCriticalSection(&gl_CS);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				fwrite(pDesc->DS.pShaderBytecode, 1, pDesc->DS.BytecodeLength, f);
+				fclose(f);
+			}
+			LeaveCriticalSection(&gl_CS);
 		}
 	}
 	if (pDesc->GS.BytecodeLength > 0) {
 		UINT64 crc = fnv_64_buf(pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
-		LogInfo("GeometryShader: %016llX\n", crc);
 		if (gl_dumpBin) {
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-gs.bin", crc);
-			fopen_s(&f, path, "wb");
-			fwrite(pDesc->GS.pShaderBytecode, 1, pDesc->GS.BytecodeLength, f);
-			fclose(f);
+			EnterCriticalSection(&gl_CS);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				fwrite(pDesc->GS.pShaderBytecode, 1, pDesc->GS.BytecodeLength, f);
+				fclose(f);
+			}
+			LeaveCriticalSection(&gl_CS);
 		}
 	}
 	if (pDesc->HS.BytecodeLength > 0) {
 		UINT64 crc = fnv_64_buf(pDesc->HS.pShaderBytecode, pDesc->HS.BytecodeLength);
-		LogInfo("HullShader: %016llX\n", crc);
 		if (gl_dumpBin) {
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-hs.bin", crc);
-			fopen_s(&f, path, "wb");
-			fwrite(pDesc->HS.pShaderBytecode, 1, pDesc->HS.BytecodeLength, f);
-			fclose(f);
+			EnterCriticalSection(&gl_CS);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				fwrite(pDesc->HS.pShaderBytecode, 1, pDesc->HS.BytecodeLength, f);
+				fclose(f);
+			}
+			LeaveCriticalSection(&gl_CS);
 		}
 	}
 	return sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState(This, pDesc, riid, ppPipelineState);
@@ -184,18 +211,17 @@ static struct {
 HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
 	FILE* f;
 	char path[MAX_PATH];
-	if (gl_dumpBin) {
-		strcat_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache");
-		CreateDirectory(path, NULL);
-	}
 	if (pDesc->CS.BytecodeLength > 0) {
 		UINT64 crc = fnv_64_buf(pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
-		LogInfo("ComputeShader: %016llX\n", crc);
 		if (gl_dumpBin) {
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-cs.bin", crc);
-			fopen_s(&f, path, "wb");
-			fwrite(pDesc->CS.pShaderBytecode, 1, pDesc->CS.BytecodeLength, f);
-			fclose(f);
+			EnterCriticalSection(&gl_CS);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				fwrite(pDesc->CS.pShaderBytecode, 1, pDesc->CS.BytecodeLength, f);
+				fclose(f);
+			}
+			LeaveCriticalSection(&gl_CS);
 		}
 	}
 	return sCreateComputePipelineState_Hook.fnCreateComputePipelineState(This, pDesc, riid, ppPipelineState);
@@ -210,8 +236,11 @@ void hookDevice(void** ppDevice) {
 
 		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState), origCGPS, D3D12_CreateGraphicsPipelineState);
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
+
+		gl_hookedDevice = true;
 	}
 }
+
 
 // Exports
 signed int WINAPI GetBehaviorValue(const char *a1, unsigned __int64 *a2) {
