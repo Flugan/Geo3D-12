@@ -22,6 +22,7 @@
     <Text Include="device12Vtbl.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\D3D_Shaders\Assembler.cpp" />
     <ClCompile Include="d3d12.cpp" />
   </ItemGroup>
   <ItemGroup>

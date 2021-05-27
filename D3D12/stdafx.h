@@ -14,3 +14,5 @@
 #include "d3d12.h"
 
 using namespace std;
+
+vector<byte> disassembler(vector<byte> buffer);
