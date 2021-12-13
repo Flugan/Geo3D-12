@@ -11,8 +11,8 @@ HINSTANCE           gl_hOriginalDll = NULL;
 bool				gl_hookedDevice = false;
 FILE*				LogFile = NULL;
 bool				gLogDebug = false;
-bool				gl_dumpBin = false;
-bool				gl_dumpASM = true;
+bool				gl_dumpBin = true;
+bool				gl_dumpASM = false;
 CNktHookLib			cHookMgr;
 CRITICAL_SECTION	gl_CS;
 #pragma data_seg ()
@@ -94,8 +94,8 @@ BOOL WINAPI DllMain(
 		setvbuf(LogFile, NULL, _IONBF, 0);
 		LogInfo("Project Flugan loaded:\n");
 		char cwd[MAX_PATH];
-		_getcwd(cwd, MAX_PATH);
-		LogInfo("%s\n", cwd);
+		if (_getcwd(cwd, MAX_PATH))
+			LogInfo("%s\n", cwd);
 		if (gl_dumpBin)
 			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
 		break;
@@ -137,8 +137,10 @@ void dumpShader(char* type, const void* pData, SIZE_T length) {
 			EnterCriticalSection(&gl_CS);
 			if (!fileExists(path)) {
 				fopen_s(&f, path, "wb");
-				fwrite(pData, 1, length, f);
-				fclose(f);
+				if (f != 0) {
+					fwrite(pData, 1, length, f);
+					fclose(f);
+				}
 			}
 			LeaveCriticalSection(&gl_CS);
 		}
@@ -153,8 +155,10 @@ void dumpShader(char* type, const void* pData, SIZE_T length) {
 				}
 				auto ASM = disassembler(v);
 				fopen_s(&f, path, "wb");
-				fwrite(ASM.data(), 1, ASM.size(), f);
-				fclose(f);
+				if (f != 0) {
+					fwrite(ASM.data(), 1, ASM.size(), f);
+					fclose(f);
+				}
 			}
 			LeaveCriticalSection(&gl_CS);
 		}
@@ -201,105 +205,76 @@ void hookDevice(void** ppDevice) {
 
 
 // Exports
-signed int WINAPI GetBehaviorValue(const char *a1, unsigned __int64 *a2) {
-	typedef signed int(WINAPI* D3D12_Type)(const char *a1, unsigned __int64 *a2);
+HRESULT _fastcall GetBehaviorValue(const char* a1, unsigned __int64* a2) {
+	typedef HRESULT(_fastcall* D3D12_Type)(const char *a, unsigned __int64 *b);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "GetBehaviorValue");
 	return fn(a1, a2);
 }; // 100
 
-HRESULT WINAPI D3D12CreateDevice(
-	IUnknown* pAdapter,
-	D3D_FEATURE_LEVEL MinimumFeatureLevel,
-	REFIID riid,
-	void** ppDevice) {
-	typedef HRESULT (WINAPI* D3D12_Type)(
-		IUnknown* pAdapter,
-		D3D_FEATURE_LEVEL MinimumFeatureLevel,
-		REFIID riid,
-		void** ppDevice);
+HRESULT WINAPI D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, const IID* const riid, void** ppDevice) {
+	typedef HRESULT(WINAPI* D3D12_Type)(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, const IID* const riid, void** ppDevice);
 	D3D12_Type fn = (D3D12_Type) GetProcAddress( gl_hOriginalDll, "D3D12CreateDevice");
 	HRESULT res = fn(pAdapter, MinimumFeatureLevel, riid, ppDevice);
-	//if (ppDevice != NULL)
-	//	hookDevice(ppDevice);
+	if (ppDevice != NULL)
+		hookDevice(ppDevice);
 	return res;
 } // 101
 
-HRESULT WINAPI D3D12GetDebugInterface(
-	REFIID riid,
-	void** ppvDebug) {
-	typedef HRESULT(WINAPI* D3D12_Type)(
-		REFIID riid,
-		void** ppvDebug);
+HRESULT WINAPI D3D12GetDebugInterface(const IID* const riid, void** ppvDebug) {
+	typedef HRESULT(WINAPI* D3D12_Type)(const IID* const riid, void** ppvDebug);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12GetDebugInterface");
 	return fn(riid, ppvDebug);
 } // 102
 
-int WINAPI SetAppCompatStringPointer(unsigned __int32 a1, const char *a2) {
-	typedef HRESULT(WINAPI* D3D12_Type)(unsigned __int32 a1, const char *a2);
+void _fastcall SetAppCompatStringPointer(unsigned __int64 a1, const char* a2) {
+	typedef void(_fastcall* D3D12_Type)(unsigned __int64 a1, const char* a2);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "SetAppCompatStringPointer");
 	return fn(a1, a2);
 } // 103
 
-HRESULT WINAPI D3D12CoreCreateLayeredDevice(const void *unknown0, DWORD unknown1, const void *unknown2, REFIID riid, void **ppvObj) {
-	typedef HRESULT(WINAPI* D3D12_Type)(const void *unknown0, DWORD unknown1, const void *unknown2, REFIID riid, void **ppvObj);
+
+HRESULT WINAPI D3D12CoreCreateLayeredDevice(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj) {
+	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreCreateLayeredDevice");
-	return fn(unknown0, unknown1, unknown2, riid, ppvObj);
+	return fn(u0, u1, u2, riid, ppvObj);
 } // 104
 
-HRESULT WINAPI D3D12CoreGetLayeredDeviceSize(const void *unknown0, DWORD unknown1) {
-	typedef HRESULT(WINAPI* D3D12_Type)(const void *unknown0, DWORD unknown1);
+HRESULT WINAPI D3D12CoreGetLayeredDeviceSize(const void *u0, DWORD u1) {
+	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreGetLayeredDeviceSize");
-	return fn(unknown0, unknown1);
+	return fn(u0, u1);
 } // 105
 
-HRESULT WINAPI D3D12CoreRegisterLayers(const void *unknown0, DWORD unknown1) {
-	typedef HRESULT(WINAPI* D3D12_Type)(const void *unknown0, DWORD unknown1);	
+HRESULT WINAPI D3D12CoreRegisterLayers(const void *u0, DWORD u1) {
+	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1);	
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreRegisterLayers");
-	return fn(unknown0, unknown1);
+	return fn(u0, u1);
 } // 106
 
-HRESULT WINAPI D3D12CreateRootSignatureDeserializer(
-	LPCVOID pSrcData,
-	SIZE_T SrcDataSizeInBytes,
-	REFIID pRootSignatureDeserializerInterface,
-	void** ppRootSignatureDeserializer) {
-	typedef HRESULT(WINAPI* D3D12_Type)(
-		LPCVOID pSrcData,
-		SIZE_T SrcDataSizeInBytes,
-		REFIID pRootSignatureDeserializerInterface,
-		void** ppRootSignatureDeserializer);
+
+HRESULT WINAPI D3D12CreateRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
+	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CreateRootSignatureDeserializer");
 	return fn(pSrcData, SrcDataSizeInBytes,pRootSignatureDeserializerInterface,ppRootSignatureDeserializer);
 } // 107
 
-HRESULT WINAPI D3D12CreateVersionedRootSignatureDeserializer(
-	LPCVOID pSrcData,
-	SIZE_T SrcDataSizeInBytes,
-	REFIID pRootSignatureDeserializerInterface,
-	void** ppRootSignatureDeserializer) {
-	typedef HRESULT(WINAPI* D3D12_Type)(
-		LPCVOID pSrcData,
-		SIZE_T SrcDataSizeInBytes,
-		REFIID pRootSignatureDeserializerInterface,
-		void** ppRootSignatureDeserializer);
+HRESULT WINAPI D3D12CreateVersionedRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T SrcDataSizeInBytes, REFIID pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
+	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T SrcDataSizeInBytes, REFIID pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CreateVersionedRootSignatureDeserializer");
 	return fn(pSrcData,SrcDataSizeInBytes,pRootSignatureDeserializerInterface,ppRootSignatureDeserializer);
 } // 108
 
-
-HRESULT WINAPI D3D12EnableExperimentalFeatures(
-	UINT NumFeatures,
-	const IID* pIIDs,
-	void* pConfigurationStructs,
-	UINT* pConfigurationStructSizes) {
-	typedef HRESULT(WINAPI* D3D12_Type)(
-		UINT NumFeatures,
-		const IID* pIIDs,
-		void* pConfigurationStructs,
-		UINT* pConfigurationStructSizes);
+HRESULT WINAPI D3D12EnableExperimentalFeatures(UINT NumFeatures, const IID* pIIDs, void* pConfigurationStructs,	UINT* pConfigurationStructSizes) {
+	typedef HRESULT(WINAPI* D3D12_Type)(UINT NumFeatures, const IID* pIIDs,	void* pConfigurationStructs, UINT* pConfigurationStructSizes);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12EnableExperimentalFeatures");
 	return fn(NumFeatures,pIIDs,pConfigurationStructs,pConfigurationStructSizes);
 } // 110
+
+HRESULT WINAPI D3D12GetInterface(struct _GUID* a1, const struct _GUID* a2, void** a3) {
+	typedef HRESULT(WINAPI* D3D12_Type)(struct _GUID* a1, const struct _GUID* a2, void** a3);
+	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12GetInterface");
+	return fn(a1, a2, a3);
+} // 111
 
 HRESULT WINAPI D3D12PIXEventsReplaceBlock(bool getEarliestTime) {
 	typedef HRESULT(WINAPI* D3D12_Type)(bool getEarliestTime);
@@ -313,16 +288,16 @@ HRESULT WINAPI D3D12PIXGetThreadInfo() {
 	return fn();
 } // 113
 
-HRESULT WINAPI D3D12PIXNotifyWakeFromFenceSignal(HANDLE event) {
-	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE event);
+HRESULT WINAPI D3D12PIXNotifyWakeFromFenceSignal(HANDLE a, HANDLE b) {
+	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE a, HANDLE b);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXNotifyWakeFromFenceSignal");
-	return fn(event);
+	return fn(a, b);
 } // 114
 
-HRESULT WINAPI D3D12PIXReportCounter(wchar_t const* name, float value) {
-	typedef HRESULT(WINAPI* D3D12_Type)(wchar_t const* name, float value);
+HRESULT WINAPI D3D12PIXReportCounter(HANDLE a, HANDLE b, HANDLE c) {
+	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE a, HANDLE b, HANDLE c);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXReportCounter");
-	return fn(name, value);
+	return fn(a, b, c);
 } // 115
 
 HRESULT WINAPI D3D12SerializeRootSignature(

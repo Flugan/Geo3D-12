@@ -1,6 +1,7 @@
 LIBRARY	"d3d12"
 
-EXPORTS		
+EXPORTS
+;		D3D12CreateAdditionalDevice @99
 		GetBehaviorValue @100
 		D3D12CreateDevice @101
 		D3D12GetDebugInterface @102
@@ -12,10 +13,10 @@ EXPORTS
 		D3D12CreateVersionedRootSignatureDeserializer @108
 ;		D3D12DeviceRemovedExtendedData @109
 		D3D12EnableExperimentalFeatures @110
-;		D3D12GetInterface @111
+		D3D12GetInterface @111
 		D3D12PIXEventsReplaceBlock @112
 		D3D12PIXGetThreadInfo @113
 		D3D12PIXNotifyWakeFromFenceSignal @114
-;		D3D12PIXReportCounter @115
+		D3D12PIXReportCounter @115
 		D3D12SerializeRootSignature @116
 		D3D12SerializeVersionedRootSignature @117

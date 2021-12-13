@@ -45,13 +45,14 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	_getcwd(cwd, MAX_PATH);
 	vector<string> lines;
+	/*
 	fopen_s(&f, "gamelist.txt", "rb");
 	if (f) {
 		int fr = ::fread(gamebuffer, 1, 10000, f);
 		fclose(f);
 		lines = stringToLines(gamebuffer, fr);
 	}
-
+	*/
 	if (lines.size() > 0) {
 		for (auto i = lines.begin(); i != lines.end(); i++) {
 			gameNames.push_back(*i);
