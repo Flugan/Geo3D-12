@@ -21,6 +21,9 @@ bool				gl_dumpBin = true;
 bool				gl_dumpASM = false;
 CNktHookLib			cHookMgr;
 CRITICAL_SECTION	gl_CS;
+// global declarations
+LPDIRECT3D9 d3d;    // the pointer to our Direct3D interface
+LPDIRECT3DDEVICE9 d3ddev;    // the pointer to the device class
 #pragma data_seg ()
 
 // 64 bit magic FNV-0 and FNV-1 prime
@@ -200,10 +203,8 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, c
 }
 #pragma endregion
 
+
 #pragma region DX9
-// global declarations
-LPDIRECT3D9 d3d;    // the pointer to our Direct3D interface
-LPDIRECT3DDEVICE9 d3ddev;    // the pointer to the device class
 // define the screen resolution
 #define SCREEN_WIDTH  2560
 #define SCREEN_HEIGHT 1440
@@ -276,7 +277,7 @@ void CreateDX9Window() {
 }
 
 // this is the function used to render a single frame
-void render_frame(void)
+void render_frame()
 {
 	d3ddev->BeginScene();    // begins the 3D scene
 
@@ -315,7 +316,7 @@ void render_frame(void)
 	// ORed flags in the dwFlags fiels of the _Nv_Stereo_Image_Header structure above
 #define SIH_SWAP_EYES 0x00000001
 #define SIH_SCALE_TO_FIT 0x00000002
-	
+
 	// Lock the stereo image
 	D3DLOCKED_RECT lr;
 	gImageSrc->LockRect(&lr, NULL, 0);
@@ -352,8 +353,8 @@ void render_frame(void)
 
 #pragma region DXGI
 HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
-	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
 	//render_frame();
+	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
 	return hr;
 }
 
@@ -392,7 +393,7 @@ void hookDevice(void** ppDevice) {
 		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState), origCGPS, D3D12_CreateGraphicsPipelineState);
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
 
-		HackedPresent();
+		//HackedPresent();
 		//CreateDX9Window();
 		gl_hookedDevice = true;
 	}
