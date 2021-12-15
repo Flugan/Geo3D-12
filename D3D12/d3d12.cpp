@@ -100,16 +100,8 @@ BOOL WINAPI DllMain(
 		setvbuf(LogFile, NULL, _IONBF, 0);
 		LogInfo("Project Flugan loaded:\n");
 		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
-		LogInfo("Original DLL loaded\n");
 		InitializeCriticalSection(&gl_CS);
-		LogInfo("Critical Section\n");
 		ShowStartupScreen();
-		LogInfo("Startup screen\n");
-		if (gl_dumpBin || gl_dumpASM) 
-		{
-			LogInfo("Dumping\n");
-			CreateDirectory("ShaderCache", NULL);
-		}
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -146,6 +138,7 @@ void dumpShader(char* type, const void* pData, SIZE_T length) {
 	if (length > 0) {
 		UINT64 crc = fnv_64_buf(pData, length);
 		if (gl_dumpBin) {
+			CreateDirectory("ShaderCache", NULL);
 			sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.bin", crc, type);
 			EnterCriticalSection(&gl_CS);
 			if (!fileExists(path)) {
@@ -158,6 +151,7 @@ void dumpShader(char* type, const void* pData, SIZE_T length) {
 			LeaveCriticalSection(&gl_CS);
 		}
 		if (gl_dumpASM) {
+			CreateDirectory("ShaderCache", NULL);
 			sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.txt", crc, type);
 			EnterCriticalSection(&gl_CS);
 			if (!fileExists(path)) {
