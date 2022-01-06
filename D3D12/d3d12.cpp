@@ -137,35 +137,35 @@ void dumpShader(char* type, const void* pData, SIZE_T length) {
 	path[0] = 0;
 	if (length > 0) {
 		UINT64 crc = fnv_64_buf(pData, length);
-		if (gl_dumpBin) {
+		if (gl_dumpBin || gl_dumpASM) {
 			CreateDirectory("ShaderCache", NULL);
 			sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.bin", crc, type);
 			EnterCriticalSection(&gl_CS);
 			if (!fileExists(path)) {
-				fopen_s(&f, path, "wb");
-				if (f != 0) {
-					fwrite(pData, 1, length, f);
-					fclose(f);
+				LogInfo("Dump: %s\n", path);
+				if (gl_dumpBin) {
+					fopen_s(&f, path, "wb");
+					if (f != 0) {
+						fwrite(pData, 1, length, f);
+						fclose(f);
+					}
+				}
+				if (gl_dumpASM) {
+					vector<byte> v;
+					byte* bArray = (byte*)pData;
+					for (int i = 0; i < length; i++) {
+						v.push_back(bArray[i]);
+					}
+					auto ASM = disassembler(v);
+					fopen_s(&f, path, "wb");
+					if (f != 0) {
+						fwrite(ASM.data(), 1, ASM.size(), f);
+						fclose(f);
+					}
 				}
 			}
-			LeaveCriticalSection(&gl_CS);
-		}
-		if (gl_dumpASM) {
-			CreateDirectory("ShaderCache", NULL);
-			sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.txt", crc, type);
-			EnterCriticalSection(&gl_CS);
-			if (!fileExists(path)) {
-				vector<byte> v;
-				byte* bArray = (byte*)pData;
-				for (int i = 0; i < length; i++) {
-					v.push_back(bArray[i]);
-				}
-				auto ASM = disassembler(v);
-				fopen_s(&f, path, "wb");
-				if (f != 0) {
-					fwrite(ASM.data(), 1, ASM.size(), f);
-					fclose(f);
-				}
+			else {
+				LogInfo("!!!Dump: %s\n", path);
 			}
 			LeaveCriticalSection(&gl_CS);
 		}
@@ -197,184 +197,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, c
 }
 #pragma endregion
 
-
-#pragma region DX9
-// define the screen resolution
-#define SCREEN_WIDTH  2560
-#define SCREEN_HEIGHT 1440
-
-// this is the main message handler for the DX9 window
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch (message)
-	{
-	case WM_DESTROY:
-	{
-		PostQuitMessage(0);
-		return 0;
-	} break;
-	case WM_CLOSE:
-	{
-		PostQuitMessage(0);
-		return 0;
-	} break;
-	}
-
-	return DefWindowProc(hWnd, message, wParam, lParam);
-}
-
-void CreateDX9Window() {
-	WNDCLASSEX wc;
-
-	ZeroMemory(&wc, sizeof(WNDCLASSEX));
-
-	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.lpfnWndProc = WindowProc;
-	wc.hInstance = gl_hInstDLL;
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.lpszClassName = "WindowClass9";
-
-	RegisterClassEx(&wc);
-
-	HWND hWnd = CreateWindowEx(WS_EX_TOPMOST,
-		"WindowClass9",
-		"3D Vision DX9",
-		WS_POPUP,
-		0, 0,    // the starting x and y positions should be 0
-		SCREEN_WIDTH, SCREEN_HEIGHT,    // set window to new resolution
-		NULL,
-		NULL,
-		NULL,
-		NULL);
-
-	ShowWindow(hWnd, SW_SHOWDEFAULT);
-
-	d3d = Direct3DCreate9(D3D_SDK_VERSION);    // create the Direct3D interface
-	D3DPRESENT_PARAMETERS d3dpp;    // create a struct to hold various device information
-
-	ZeroMemory(&d3dpp, sizeof(d3dpp));    // clear out the struct for use
-	d3dpp.Windowed = FALSE;
-	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;    // discard old frames
-	d3dpp.BackBufferCount = 1;
-	d3dpp.hDeviceWindow = hWnd;    // set the window to be used by Direct3D
-	d3dpp.BackBufferFormat = D3DFMT_X8R8G8B8;    // set the back buffer format to 32-bit
-	d3dpp.BackBufferWidth = SCREEN_WIDTH;    // set the width of the buffer
-	d3dpp.BackBufferHeight = SCREEN_HEIGHT;    // set the height of the buffer
-
-	// create a device class using this information and the info from the d3dpp stuct
-	HRESULT hr = d3d->CreateDevice(D3DADAPTER_DEFAULT,
-		D3DDEVTYPE_HAL,
-		hWnd,
-		D3DCREATE_SOFTWARE_VERTEXPROCESSING,
-		&d3dpp,
-		&d3ddev);
-}
-
-// this is the function used to render a single frame
-void render_frame()
-{
-	d3ddev->BeginScene();    // begins the 3D scene
-
-	IDirect3DSurface9* gImageSrc = NULL; // Source stereo image beeing created
-
-	d3ddev->CreateOffscreenPlainSurface(
-		SCREEN_WIDTH * 2, // Stereo width is twice the source width
-		SCREEN_HEIGHT + 1, // Stereo height add one raw to encode signature
-		D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, // Surface is in video memory
-		&gImageSrc, NULL);
-	// Blit SBS src image to both side of stereo
-
-	IDirect3DSurface9* gImageLeft = NULL; // Source stereo image beeing created
-
-	d3ddev->CreateOffscreenPlainSurface(
-		SCREEN_WIDTH, // Stereo width is twice the source width
-		SCREEN_HEIGHT, // Stereo height add one raw to encode signature
-		D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, // Surface is in video memory
-		&gImageLeft, NULL);
-	d3ddev->ColorFill(gImageLeft, NULL, D3DCOLOR_XRGB(255, 255, 255));
-	RECT left = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-	d3ddev->StretchRect(gImageLeft, &left, gImageSrc, &left, D3DTEXF_NONE);
-
-	// Stereo Blit defines
-#define NVSTEREO_IMAGE_SIGNATURE 0x4433564e //NV3D
-
-	typedef struct _Nv_Stereo_Image_Header
-	{
-		unsigned int dwSignature;
-		unsigned int dwWidth;
-		unsigned int dwHeight;
-		unsigned int dwBPP;
-		unsigned int dwFlags;
-	} NVSTEREOIMAGEHEADER, * LPNVSTEREOIMAGEHEADER;
-
-	// ORed flags in the dwFlags fiels of the _Nv_Stereo_Image_Header structure above
-#define SIH_SWAP_EYES 0x00000001
-#define SIH_SCALE_TO_FIT 0x00000002
-
-	// Lock the stereo image
-	D3DLOCKED_RECT lr;
-	gImageSrc->LockRect(&lr, NULL, 0);
-
-	// write stereo signature in the last raw of the stereo image
-	LPNVSTEREOIMAGEHEADER pSIH =
-		(LPNVSTEREOIMAGEHEADER)(((unsigned char*)lr.pBits) + (lr.Pitch * SCREEN_HEIGHT));
-
-	// Update the signature header values
-	pSIH->dwSignature = NVSTEREO_IMAGE_SIGNATURE;
-	pSIH->dwBPP = 32;
-	pSIH->dwFlags = SIH_SWAP_EYES; // Src image has left on left and right on right
-	pSIH->dwWidth = SCREEN_WIDTH * 2;
-	pSIH->dwHeight = SCREEN_HEIGHT;
-
-	// Unlock surface
-	gImageSrc->UnlockRect();
-
-	IDirect3DSurface9* pBackBuffer;
-	d3ddev->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuffer);
-
-	RECT codedRect = { 0, 0, SCREEN_WIDTH * 2, SCREEN_HEIGHT + 1 };
-	RECT backRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-	d3ddev->StretchRect(gImageSrc, &codedRect, pBackBuffer, &backRect, D3DTEXF_NONE);
-
-	pBackBuffer->Release();
-	gImageSrc->Release();
-
-	d3ddev->EndScene();    // ends the 3D scene
-
-	d3ddev->Present(NULL, NULL, NULL, NULL);   // displays the created frame on the screen
-}
-#pragma endregion
-
-#pragma region DXGI
-HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
-	//render_frame();
-	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
-	return hr;
-}
-
-HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain1(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
-	LogInfo("CreateSwapChain1\n");
-	HRESULT hr = sCreateSwapChain_Hook.fnCreateSwapChain1(This, pDevice, pDesc, ppSwapChain);
-	if (!gl_Present_hooked) {
-		LogInfo("Present hooked\n");
-		gl_Present_hooked = true;
-		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
-		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
-		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fnDXGI_Present), origPresent, DXGIH_Present);
-	}
-	return hr;
-}
-
-void HackedPresent() {
-	IDXGIFactory1** ppFactory;
-	HRESULT hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)ppFactory);
-	DWORD_PTR*** vTable = (DWORD_PTR***)*ppFactory;
-	DXGI_CSC1 origCSC1 = (DXGI_CSC1)(*vTable)[10];
-	cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fnCreateSwapChain1), origCSC1, DXGI_CreateSwapChain1);
-	(*ppFactory)->Release();
-}
-#pragma endregion
-
 void hookDevice(void** ppDevice) {
 	if (!gl_hookedDevice) {
 		LogInfo("Hooking device\n");
@@ -387,22 +209,20 @@ void hookDevice(void** ppDevice) {
 		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState), origCGPS, D3D12_CreateGraphicsPipelineState);
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
 
-		//HackedPresent();
-		//CreateDX9Window();
 		gl_hookedDevice = true;
 	}
 }
 
 #pragma region Exports
 HRESULT _fastcall GetBehaviorValue(const char* a1, unsigned __int64* a2) {
-	LogInfo("GetBehaviorValue\n");
+	//LogInfo("GetBehaviorValue\n");
 	typedef HRESULT(_fastcall* D3D12_Type)(const char *a, unsigned __int64 *b);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "GetBehaviorValue");
 	return fn(a1, a2);
 }; // 100
 
 HRESULT D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, REFIID riid, void** ppDevice) {
-	LogInfo("CreateDevice\n");
+	//LogInfo("CreateDevice\n");
 	typedef HRESULT(*D3D12_Type)(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, REFIID riid, void** ppDevice);
 	D3D12_Type fn = (D3D12_Type)NktHookLibHelpers::GetProcedureAddress(gl_hOriginalDll, "D3D12CreateDevice");
 	HRESULT res = fn(pAdapter, MinimumFeatureLevel, riid, ppDevice);
@@ -412,14 +232,14 @@ HRESULT D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLe
 } // 101
 
 HRESULT WINAPI D3D12GetDebugInterface(const IID* const riid, void** ppvDebug) {
-	LogInfo("GetDebugInterface\n");
+	//LogInfo("GetDebugInterface\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const IID* const riid, void** ppvDebug);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12GetDebugInterface");
 	return fn(riid, ppvDebug);
 } // 102
 
 void _fastcall SetAppCompatStringPointer(unsigned __int64 a1, const char* a2) {
-	LogInfo("SetAppCompatStringPointer\n");
+	//LogInfo("SetAppCompatStringPointer\n");
 	typedef void(_fastcall* D3D12_Type)(unsigned __int64 a1, const char* a2);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "SetAppCompatStringPointer");
 	return fn(a1, a2);
@@ -427,21 +247,21 @@ void _fastcall SetAppCompatStringPointer(unsigned __int64 a1, const char* a2) {
 
 
 HRESULT WINAPI D3D12CoreCreateLayeredDevice(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj) {
-	LogInfo("CoreCreateLayeredDevice\n");
+	//LogInfo("CoreCreateLayeredDevice\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreCreateLayeredDevice");
 	return fn(u0, u1, u2, riid, ppvObj);
 } // 104
 
 HRESULT WINAPI D3D12CoreGetLayeredDeviceSize(const void *u0, DWORD u1) {
-	LogInfo("CoreGetLayeredDeviceSize\n");
+	//LogInfo("CoreGetLayeredDeviceSize\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreGetLayeredDeviceSize");
 	return fn(u0, u1);
 } // 105
 
 HRESULT WINAPI D3D12CoreRegisterLayers(const void *u0, DWORD u1) {
-	LogInfo("CoreRegisterLayers\n");
+	//LogInfo("CoreRegisterLayers\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreRegisterLayers");
 	return fn(u0, u1);
@@ -449,56 +269,56 @@ HRESULT WINAPI D3D12CoreRegisterLayers(const void *u0, DWORD u1) {
 
 
 HRESULT WINAPI D3D12CreateRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
-	LogInfo("CreateRootSignatureDeserializer\n");
+	//LogInfo("CreateRootSignatureDeserializer\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CreateRootSignatureDeserializer");
 	return fn(pSrcData, SrcDataSizeInBytes,pRootSignatureDeserializerInterface,ppRootSignatureDeserializer);
 } // 107
 
 HRESULT WINAPI D3D12CreateVersionedRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T SrcDataSizeInBytes, REFIID pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
-	LogInfo("CreateVersionedRootSignatureDeserializer\n");
+	//LogInfo("CreateVersionedRootSignatureDeserializer\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T SrcDataSizeInBytes, REFIID pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CreateVersionedRootSignatureDeserializer");
 	return fn(pSrcData,SrcDataSizeInBytes,pRootSignatureDeserializerInterface,ppRootSignatureDeserializer);
 } // 108
 
 HRESULT WINAPI D3D12EnableExperimentalFeatures(UINT NumFeatures, const IID* pIIDs, void* pConfigurationStructs,	UINT* pConfigurationStructSizes) {
-	LogInfo("EnableExperimentalFeatures\n");
+	//LogInfo("EnableExperimentalFeatures\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(UINT NumFeatures, const IID* pIIDs,	void* pConfigurationStructs, UINT* pConfigurationStructSizes);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12EnableExperimentalFeatures");
 	return fn(NumFeatures,pIIDs,pConfigurationStructs,pConfigurationStructSizes);
 } // 110
 
 HRESULT WINAPI D3D12GetInterface(struct _GUID* a1, const struct _GUID* a2, void** a3) {
-	LogInfo("GetInterface\n");
+	//LogInfo("GetInterface\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(struct _GUID* a1, const struct _GUID* a2, void** a3);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12GetInterface");
 	return fn(a1, a2, a3);
 } // 111
 
 HRESULT WINAPI D3D12PIXEventsReplaceBlock(bool getEarliestTime) {
-	LogInfo("PIXEventsReplaceBlock\n");
+	//LogInfo("PIXEventsReplaceBlock\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(bool getEarliestTime);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXEventsReplaceBlock");
 	return fn(getEarliestTime);
 } // 112
 
 HRESULT WINAPI D3D12PIXGetThreadInfo() {
-	LogInfo("PIXGetThreadInfo\n");
+	//LogInfo("PIXGetThreadInfo\n");
 	typedef HRESULT(WINAPI* D3D12_Type)();
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXGetThreadInfo");
 	return fn();
 } // 113
 
 HRESULT WINAPI D3D12PIXNotifyWakeFromFenceSignal(HANDLE a, HANDLE b) {
-	LogInfo("PIXNotifyWakeFromFenceSignal\n");
+	//LogInfo("PIXNotifyWakeFromFenceSignal\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE a, HANDLE b);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXNotifyWakeFromFenceSignal");
 	return fn(a, b);
 } // 114
 
 HRESULT WINAPI D3D12PIXReportCounter(HANDLE a, HANDLE b, HANDLE c) {
-	LogInfo("PIXReportCounter\n");
+	//LogInfo("PIXReportCounter\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE a, HANDLE b, HANDLE c);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXReportCounter");
 	return fn(a, b, c);
@@ -509,7 +329,7 @@ HRESULT WINAPI D3D12SerializeRootSignature(
 	D3D_ROOT_SIGNATURE_VERSION Version,
 	ID3DBlob** ppBlob,
 	ID3DBlob** ppErrorBlob) {
-	LogInfo("SerializeRootSignature\n");
+	//LogInfo("SerializeRootSignature\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(
 		const D3D12_ROOT_SIGNATURE_DESC* pRootSignature,
 		D3D_ROOT_SIGNATURE_VERSION Version,
@@ -523,7 +343,7 @@ HRESULT WINAPI D3D12SerializeVersionedRootSignature(
 	const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
 	ID3DBlob** ppBlob,
 	ID3DBlob** ppErrorBlob) {
-	LogInfo("SerializeVersionedRootSignature\n");
+	//LogInfo("SerializeVersionedRootSignature\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(
 		const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
 		ID3DBlob** ppBlob,
