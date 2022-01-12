@@ -4,6 +4,8 @@
 #include "resource.h"
 #include "..\log.h"
 #include "..\Nektra\NktHookLib.h"
+#include <wrl.h>
+using namespace Microsoft::WRL;
 #include <d3d9.h>
 
 // include the Direct3D Library file
@@ -347,14 +349,18 @@ void render_frame()
 
 #pragma region DXGI
 HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
-	//render_frame();
 	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
 	return hr;
 }
 
-HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain1(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
-	LogInfo("CreateSwapChain1\n");
-	HRESULT hr = sCreateSwapChain_Hook.fnCreateSwapChain1(This, pDevice, pDesc, ppSwapChain);
+HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters) {
+	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
+	return hr;
+}
+
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
+	LogInfo("CreateSwapChain\n");
+	HRESULT hr = sCreateSwapChain_Hook.fnCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
 	if (!gl_Present_hooked) {
 		LogInfo("Present hooked\n");
 		gl_Present_hooked = true;
@@ -365,13 +371,33 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain1(IDXGIFactory1* This, IUnknown* p
 	return hr;
 }
 
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
+	LogInfo("CreateSwapChainForHWND\n");
+	HRESULT hr = sCreateSwapChainForHWND_Hook.fnCreateSwapChainForHWND(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+	if (!gl_Present_hooked) {
+		LogInfo("Present1 hooked\n");
+		gl_Present_hooked = true;
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fnDXGI_Present1), origPresent1, DXGIH_Present1);
+	}
+	return hr;
+}
+
 void HackedPresent() {
-	IDXGIFactory1** ppFactory;
-	HRESULT hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)ppFactory);
-	DWORD_PTR*** vTable = (DWORD_PTR***)*ppFactory;
-	DXGI_CSC1 origCSC1 = (DXGI_CSC1)(*vTable)[10];
-	cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fnCreateSwapChain1), origCSC1, DXGI_CreateSwapChain1);
-	(*ppFactory)->Release();
+	IDXGIFactory *pFactory1;
+	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
+	DWORD_PTR*** vTable = (DWORD_PTR***)pFactory1;
+	DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
+	cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fnCreateSwapChain), origCSC, DXGI_CreateSwapChain);
+	pFactory1->Release();
+
+	IDXGIFactory2* pFactory2;
+	hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
+	vTable = (DWORD_PTR***)pFactory2;
+	DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
+	cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fnCreateSwapChainForHWND), origCSCFH, DXGI_CreateSwapChainForHWND);
+	pFactory2->Release();
 }
 #pragma endregion
 
@@ -387,7 +413,7 @@ void hookDevice(void** ppDevice) {
 		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState), origCGPS, D3D12_CreateGraphicsPipelineState);
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
 
-		//HackedPresent();
+		HackedPresent();
 		//CreateDX9Window();
 		gl_hookedDevice = true;
 	}

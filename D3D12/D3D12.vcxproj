@@ -20,6 +20,10 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="device12Vtbl.txt" />
+    <Text Include="IDXGIFactory2Vtbl.txt" />
+    <Text Include="IDXGIFactory1Vtbl.txt" />
+    <Text Include="SwapChainVtbl.txt" />
+    <Text Include="SwapChain1Vtbl.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\D3D_Shaders\Assembler.cpp" />

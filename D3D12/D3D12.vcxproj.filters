@@ -18,6 +18,18 @@
     <Text Include="device12Vtbl.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="IDXGIFactory2Vtbl.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="IDXGIFactory1Vtbl.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="SwapChainVtbl.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="SwapChain1Vtbl.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="d3d12.cpp">

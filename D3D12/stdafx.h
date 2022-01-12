@@ -12,7 +12,7 @@
 #include <map>
 #include <algorithm>
 #include "d3d12.h"
-#include "dxgi.h"
+#include "dxgi1_6.h"
 
 using namespace std;
 
