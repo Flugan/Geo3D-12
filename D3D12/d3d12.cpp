@@ -6,10 +6,6 @@
 #include "..\Nektra\NktHookLib.h"
 #include <wrl.h>
 using namespace Microsoft::WRL;
-#include <d3d9.h>
-
-// include the Direct3D Library file
-#pragma comment (lib, "d3d9.lib")
 
 // global variables
 #pragma data_seg (".d3d12_shared")
@@ -23,9 +19,6 @@ bool				gl_dumpBin = true;
 bool				gl_dumpASM = false;
 CNktHookLib			cHookMgr;
 CRITICAL_SECTION	gl_CS;
-// global declarations
-LPDIRECT3D9 d3d;    // the pointer to our Direct3D interface
-LPDIRECT3DDEVICE9 d3ddev;    // the pointer to the device class
 #pragma data_seg ()
 
 // 64 bit magic FNV-0 and FNV-1 prime
@@ -199,154 +192,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, c
 }
 #pragma endregion
 
-
-#pragma region DX9
-// define the screen resolution
-#define SCREEN_WIDTH  2560
-#define SCREEN_HEIGHT 1440
-
-// this is the main message handler for the DX9 window
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch (message)
-	{
-	case WM_DESTROY:
-	{
-		PostQuitMessage(0);
-		return 0;
-	} break;
-	case WM_CLOSE:
-	{
-		PostQuitMessage(0);
-		return 0;
-	} break;
-	}
-
-	return DefWindowProc(hWnd, message, wParam, lParam);
-}
-
-void CreateDX9Window() {
-	WNDCLASSEX wc;
-
-	ZeroMemory(&wc, sizeof(WNDCLASSEX));
-
-	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.lpfnWndProc = WindowProc;
-	wc.hInstance = gl_hInstDLL;
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.lpszClassName = "WindowClass9";
-
-	RegisterClassEx(&wc);
-
-	HWND hWnd = CreateWindowEx(WS_EX_TOPMOST,
-		"WindowClass9",
-		"3D Vision DX9",
-		WS_POPUP,
-		0, 0,    // the starting x and y positions should be 0
-		SCREEN_WIDTH, SCREEN_HEIGHT,    // set window to new resolution
-		NULL,
-		NULL,
-		NULL,
-		NULL);
-
-	ShowWindow(hWnd, SW_SHOWDEFAULT);
-
-	d3d = Direct3DCreate9(D3D_SDK_VERSION);    // create the Direct3D interface
-	D3DPRESENT_PARAMETERS d3dpp;    // create a struct to hold various device information
-
-	ZeroMemory(&d3dpp, sizeof(d3dpp));    // clear out the struct for use
-	d3dpp.Windowed = FALSE;
-	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;    // discard old frames
-	d3dpp.BackBufferCount = 1;
-	d3dpp.hDeviceWindow = hWnd;    // set the window to be used by Direct3D
-	d3dpp.BackBufferFormat = D3DFMT_X8R8G8B8;    // set the back buffer format to 32-bit
-	d3dpp.BackBufferWidth = SCREEN_WIDTH;    // set the width of the buffer
-	d3dpp.BackBufferHeight = SCREEN_HEIGHT;    // set the height of the buffer
-
-	// create a device class using this information and the info from the d3dpp stuct
-	HRESULT hr = d3d->CreateDevice(D3DADAPTER_DEFAULT,
-		D3DDEVTYPE_HAL,
-		hWnd,
-		D3DCREATE_SOFTWARE_VERTEXPROCESSING,
-		&d3dpp,
-		&d3ddev);
-}
-
-// this is the function used to render a single frame
-void render_frame()
-{
-	d3ddev->BeginScene();    // begins the 3D scene
-
-	IDirect3DSurface9* gImageSrc = NULL; // Source stereo image beeing created
-
-	d3ddev->CreateOffscreenPlainSurface(
-		SCREEN_WIDTH * 2, // Stereo width is twice the source width
-		SCREEN_HEIGHT + 1, // Stereo height add one raw to encode signature
-		D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, // Surface is in video memory
-		&gImageSrc, NULL);
-	// Blit SBS src image to both side of stereo
-
-	IDirect3DSurface9* gImageLeft = NULL; // Source stereo image beeing created
-
-	d3ddev->CreateOffscreenPlainSurface(
-		SCREEN_WIDTH, // Stereo width is twice the source width
-		SCREEN_HEIGHT, // Stereo height add one raw to encode signature
-		D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, // Surface is in video memory
-		&gImageLeft, NULL);
-	d3ddev->ColorFill(gImageLeft, NULL, D3DCOLOR_XRGB(255, 255, 255));
-	RECT left = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-	d3ddev->StretchRect(gImageLeft, &left, gImageSrc, &left, D3DTEXF_NONE);
-
-	// Stereo Blit defines
-#define NVSTEREO_IMAGE_SIGNATURE 0x4433564e //NV3D
-
-	typedef struct _Nv_Stereo_Image_Header
-	{
-		unsigned int dwSignature;
-		unsigned int dwWidth;
-		unsigned int dwHeight;
-		unsigned int dwBPP;
-		unsigned int dwFlags;
-	} NVSTEREOIMAGEHEADER, * LPNVSTEREOIMAGEHEADER;
-
-	// ORed flags in the dwFlags fiels of the _Nv_Stereo_Image_Header structure above
-#define SIH_SWAP_EYES 0x00000001
-#define SIH_SCALE_TO_FIT 0x00000002
-
-	// Lock the stereo image
-	D3DLOCKED_RECT lr;
-	gImageSrc->LockRect(&lr, NULL, 0);
-
-	// write stereo signature in the last raw of the stereo image
-	LPNVSTEREOIMAGEHEADER pSIH =
-		(LPNVSTEREOIMAGEHEADER)(((unsigned char*)lr.pBits) + (lr.Pitch * SCREEN_HEIGHT));
-
-	// Update the signature header values
-	pSIH->dwSignature = NVSTEREO_IMAGE_SIGNATURE;
-	pSIH->dwBPP = 32;
-	pSIH->dwFlags = SIH_SWAP_EYES; // Src image has left on left and right on right
-	pSIH->dwWidth = SCREEN_WIDTH * 2;
-	pSIH->dwHeight = SCREEN_HEIGHT;
-
-	// Unlock surface
-	gImageSrc->UnlockRect();
-
-	IDirect3DSurface9* pBackBuffer;
-	d3ddev->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuffer);
-
-	RECT codedRect = { 0, 0, SCREEN_WIDTH * 2, SCREEN_HEIGHT + 1 };
-	RECT backRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-	d3ddev->StretchRect(gImageSrc, &codedRect, pBackBuffer, &backRect, D3DTEXF_NONE);
-
-	pBackBuffer->Release();
-	gImageSrc->Release();
-
-	d3ddev->EndScene();    // ends the 3D scene
-
-	d3ddev->Present(NULL, NULL, NULL, NULL);   // displays the created frame on the screen
-}
-#pragma endregion
-
 #pragma region DXGI
 HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
 	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
@@ -414,7 +259,7 @@ void hookDevice(void** ppDevice) {
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
 
 		HackedPresent();
-		//CreateDX9Window();
+
 		gl_hookedDevice = true;
 	}
 }
