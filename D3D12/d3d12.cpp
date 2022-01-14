@@ -12,7 +12,8 @@ using namespace Microsoft::WRL;
 HINSTANCE			gl_hInstDLL = NULL;
 HINSTANCE           gl_hOriginalDll = NULL;
 bool				gl_hookedDevice = false;
-bool				gl_Present_hooked = false;
+bool				gl_SwapChain_hooked = false;
+bool				gl_SwapChain1_hooked = false;
 FILE*				LogFile = NULL;
 bool				gLogDebug = false;
 bool				gl_dumpBin = true;
@@ -91,7 +92,7 @@ BOOL WINAPI DllMain(
 	switch (fdwReason) {
 	case DLL_PROCESS_ATTACH:
 		gl_hInstDLL = hinst;
-		LogFile = _fsopen("Log_dx12.txt", "w", _SH_DENYNO);
+		LogFile = _fsopen("d3d12.log.txt", "w", _SH_DENYNO);
 		setvbuf(LogFile, NULL, _IONBF, 0);
 		LogInfo("Project Flugan loaded:\n");
 		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
@@ -195,21 +196,30 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, c
 #pragma region DXGI
 HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
 	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
+	LogInfo("Present\n");
+	return hr;
+}
+
+HRESULT STDMETHODCALLTYPE DXGIH_Present0(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags) {
+	HRESULT hr = sDXGI_Present0_Hook.fnDXGI_Present0(This, SyncInterval, Flags);
+	LogInfo("Present0\n");
 	return hr;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters) {
-	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
+	HRESULT hr = sDXGI_Present1_Hook.fnDXGI_Present1(This, SyncInterval, Flags, pPresentParameters);
+	LogInfo("Present1\n");
 	return hr;
 }
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
 	LogInfo("CreateSwapChain\n");
 	HRESULT hr = sCreateSwapChain_Hook.fnCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
-	if (!gl_Present_hooked) {
-		LogInfo("Present hooked\n");
-		gl_Present_hooked = true;
+	if (!gl_SwapChain_hooked) {
+		LogInfo("SwapChain hooked\n");
+		gl_SwapChain_hooked = true;
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
 		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fnDXGI_Present), origPresent, DXGIH_Present);
 	}
@@ -219,10 +229,14 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pD
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
 	LogInfo("CreateSwapChainForHWND\n");
 	HRESULT hr = sCreateSwapChainForHWND_Hook.fnCreateSwapChainForHWND(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
-	if (!gl_Present_hooked) {
-		LogInfo("Present1 hooked\n");
-		gl_Present_hooked = true;
+	if (!gl_SwapChain1_hooked) {
+		LogInfo("SwapChain1 hooked\n");
+		gl_SwapChain1_hooked = true;
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+
+		DXGI_Present0 origPresent0 = (DXGI_Present0)(*vTable)[9];
+		cHookMgr.Hook(&(sDXGI_Present0_Hook.nHookId), (LPVOID*)&(sDXGI_Present0_Hook.fnDXGI_Present0), origPresent0, DXGIH_Present0);
+
 		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
 		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fnDXGI_Present1), origPresent1, DXGIH_Present1);
 	}
@@ -272,9 +286,9 @@ HRESULT _fastcall GetBehaviorValue(const char* a1, unsigned __int64* a2) {
 	return fn(a1, a2);
 }; // 100
 
-HRESULT D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, REFIID riid, void** ppDevice) {
+HRESULT D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, const IID riid, void** ppDevice) {
 	LogInfo("CreateDevice\n");
-	typedef HRESULT(*D3D12_Type)(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, REFIID riid, void** ppDevice);
+	typedef HRESULT(*D3D12_Type)(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, const IID riid, void** ppDevice);
 	D3D12_Type fn = (D3D12_Type)NktHookLibHelpers::GetProcedureAddress(gl_hOriginalDll, "D3D12CreateDevice");
 	HRESULT res = fn(pAdapter, MinimumFeatureLevel, riid, ppDevice);
 	if (ppDevice)

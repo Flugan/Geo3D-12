@@ -12,6 +12,12 @@ static struct {
 	DXGI_CSC fnCreateSwapChain;
 } sCreateSwapChain_Hook = { 0, NULL };
 
+typedef HRESULT(STDMETHODCALLTYPE* DXGI_Present0)(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags);
+static struct {
+	SIZE_T nHookId;
+	DXGI_Present fnDXGI_Present0;
+} sDXGI_Present0_Hook = { 0, NULL };
+
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_Present1)(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters);
 static struct {
 	SIZE_T nHookId;
