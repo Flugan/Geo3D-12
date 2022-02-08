@@ -4,8 +4,6 @@
 #include "resource.h"
 #include "..\log.h"
 #include "..\Nektra\NktHookLib.h"
-#include <wrl.h>
-using namespace Microsoft::WRL;
 
 // global variables
 #pragma data_seg (".d3d12_shared")
@@ -14,15 +12,20 @@ HINSTANCE           gl_hOriginalDll = NULL;
 bool				gl_hookedDevice = false;
 bool				gl_SwapChain_hooked = false;
 bool				gl_SwapChain1_hooked = false;
+bool				gl_GraphicsCommandList_hooked = false;
+bool				gl_left = true;
 FILE*				LogFile = NULL;
-bool				gLogDebug = false;
-bool				gl_dumpBin = true;
+bool				gl_log = false;
+bool				gl_dumpBin = false;
 bool				gl_dumpASM = false;
-ID3D12Device*		gl_pDevice = nullptr;
-int					gl_backBufferIndex = 0;
+bool				gl_justDump = false;
+bool				gl_noHook = false;
+bool				gl_noPresent = false;
+bool				gl_debugAttach = false;
+string				sep = "0.1";
+string				conv = "1.0";
 int					gl_numBbackBuffers;
 CNktHookLib			cHookMgr;
-CRITICAL_SECTION	gl_CS;
 #pragma data_seg ()
 
 // 64 bit magic FNV-0 and FNV-1 prime
@@ -85,6 +88,31 @@ void ExitInstance()
 	}
 }
 
+void readINI() {
+	vector<byte> iniData = readFile("c:\\Flugan\\d3d12.ini");
+	vector<string> lines;
+	if (iniData.size() > 0) {
+		lines = stringToLines((char*)iniData.data(), iniData.size());
+	}
+	for (size_t i = 0; i < lines.size(); i++) {
+		string s = lines[i];
+		if (s.find("log") == 0)
+			gl_log = s[4] == '1';
+		if (s.find("asm") == 0)
+			gl_dumpASM = s[4] == '1';
+		if (s.find("bin") == 0)
+			gl_dumpBin = s[4] == '1';
+
+		if (s.find("attach") == 0)
+			gl_debugAttach = s[7] == '1';
+
+		if (s.find("separation") == 0)
+			sep = s.substr(11);
+		if (s.find("convergence") == 0)
+			conv = s.substr(12);
+	}
+}
+
 BOOL WINAPI DllMain(
 	_In_  HINSTANCE hinst,
 	_In_  DWORD fdwReason,
@@ -95,12 +123,23 @@ BOOL WINAPI DllMain(
 	switch (fdwReason) {
 	case DLL_PROCESS_ATTACH:
 		gl_hInstDLL = hinst;
-		LogFile = _fsopen("d3d12.log.txt", "w", _SH_DENYNO);
-		setvbuf(LogFile, NULL, _IONBF, 0);
+		readINI();
+		if (gl_log) {
+			LogFile = _fsopen("c:\\Flugan\\d3d12.log.txt", "w", _SH_DENYNO);
+			setvbuf(LogFile, NULL, _IONBF, 0);
+		}
 		LogInfo("Project Flugan loaded:\n");
+		LogInfo("separation: %s\n", sep.c_str());
+		LogInfo("convergence: %s\n", conv.c_str());
 		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
-		InitializeCriticalSection(&gl_CS);
+		LogInfo("Original d3d12.dll loaded:\n");
 		ShowStartupScreen();
+		if (gl_debugAttach) {
+			LogInfo("Waiting for debug attatch\n");
+			do {
+				Sleep(250);
+			} while (!IsDebuggerPresent());
+		}
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -130,95 +169,359 @@ int fileExists(TCHAR* file) {
 	return found;
 }
 
-void dumpShader(char* type, const void* pData, SIZE_T length) {
+void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
+	FILE* f;
+	char path[MAX_PATH];
+	path[0] = 0;
+	if (length >= 0) {
+		UINT64 crc = fnv_64_buf(pData, length);
+		if (crc2 != 0)
+			crc = crc2;
+		if (gl_dumpBin) {
+			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
+			sprintf_s(path, MAX_PATH, "c:\\Flugan\\ShaderCache\\%016llX-%s.txt", crc, type);
+			LogInfo("Dump RAW: %s\n", path);
+			if (!fileExists(path)) {
+				fopen_s(&f, path, "wb");
+				if (f != 0) {
+					fwrite(pData, 1, length, f);
+					fclose(f);
+				}
+			}
+		}
+	}
+}
+
+void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 	FILE* f;
 	char path[MAX_PATH];
 	path[0] = 0;
 	if (length > 0) {
 		UINT64 crc = fnv_64_buf(pData, length);
-		if (gl_dumpBin || gl_dumpASM) {
-			CreateDirectory("ShaderCache", NULL);
-			sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.bin", crc, type);
-			EnterCriticalSection(&gl_CS);
+		if (crc2 != 0)
+			crc = crc2;
+		if (gl_dumpBin) {
+			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
+			sprintf_s(path, MAX_PATH, "c:\\Flugan\\ShaderCache\\%016llX-%s.bin", crc, type);
+			LogInfo("Dump BIN: %s\n", path);
 			if (!fileExists(path)) {
-				LogInfo("Dump: %s\n", path);
-				if (gl_dumpBin) {
-					fopen_s(&f, path, "wb");
-					if (f != 0) {
-						fwrite(pData, 1, length, f);
-						fclose(f);
-					}
-				}
-				if (gl_dumpASM) {
-					vector<byte> v;
-					byte* bArray = (byte*)pData;
-					for (int i = 0; i < length; i++) {
-						v.push_back(bArray[i]);
-					}
-					auto ASM = disassembler(v);
-					fopen_s(&f, path, "wb");
-					if (f != 0) {
-						fwrite(ASM.data(), 1, ASM.size(), f);
-						fclose(f);
-					}
+				fopen_s(&f, path, "wb");
+				if (f != 0) {
+					fwrite(pData, 1, length, f);
+					fclose(f);
 				}
 			}
-			else {
-				LogInfo("!!!Dump: %s\n", path);
+		}
+		if (gl_dumpASM) {
+			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
+			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-%s.txt", crc, type);
+			LogInfo("Dump ASM: %s\n", path);
+			if (!fileExists(path)) {
+				vector<byte> v;
+				byte* bArray = (byte*)pData;
+				for (int i = 0; i < length; i++) {
+					v.push_back(bArray[i]);
+				}
+				auto ASM = disassembler(v);
+
+				fopen_s(&f, path, "wb");
+				if (f != 0) {
+					fwrite(ASM.data(), 1, ASM.size(), f);
+					fclose(f);
+				}
 			}
-			LeaveCriticalSection(&gl_CS);
 		}
 	}
 }
+#pragma endregion
 
-typedef HRESULT(STDMETHODCALLTYPE* D3D12_CGPS)(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC *pDesc, const IID &riid, void **ppPipelineState);
-static struct {
-	SIZE_T nHookId;
-	D3D12_CGPS fnCreateGraphicsPipelineState;
-} sCreateGraphicsPipelineState_Hook = { 0, NULL };
+string changeASM(vector<byte> ASM, bool left) {
+	auto lines = stringToLines((char*)ASM.data(), ASM.size());
+	string shaderL;
+	string shaderR;
+	string shader;
+	string oReg;
+	bool dcl = false;
+	bool dcl_ICB = false;
+	int temp = 0;
+	for (int i = 0; i < lines.size(); i++) {
+		string s = lines[i];
+		if (s.find("dcl") == 0) {
+			dcl = true;
+			dcl_ICB = false;
+			if (s.find("dcl_output_siv") == 0 && s.find("position") != string::npos) {
+				oReg = s.substr(15, 2);
+				shader += s + "\n";
+			}
+			else if (s.find("dcl_temps") == 0) {
+				string num = s.substr(10);
+				temp = atoi(num.c_str()) + 2;
+				shader += "dcl_temps " + to_string(temp) + "\n";
+			}
+			else if (s.find("dcl_immediateConstantBuffer") == 0) {
+				dcl_ICB = true;
+				shader += s + "\n";
+			}
+			else {
+				shader += s + "\n";
+			}
+		}
+		else if (dcl_ICB == true) {
+			shader += s + "\n";
+		}
+		else if (dcl == true) {
+			// after dcl
+			if (s.find("ret") < s.size()) {
+				string changeSep = left ? "l(-" + sep + ")" : "l(" + sep + ")";
+				shader += "add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
+					"mad r" + to_string(temp - 2) + ".x, r" + to_string(temp - 2) + ".x, " + changeSep + ", r" + to_string(temp - 1) + ".x\n" +
+					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n";
+			}
+			if (oReg.size() == 0) {
+				// no output
+				return "";
+			}
+			if (temp == 0) {
+				// add temps
+				temp = 2;
+				shader += "dcl_temps 2\n";
+			}
+			shader += s + "\n";
+			auto pos = s.find(oReg);
+			if (pos != string::npos) {
+				string reg = "r" + to_string(temp - 1);
+				for (int i = 0; i < s.size(); i++) {
+					if (i < pos) {
+						shader += s[i];
+					}
+					else if (i == pos) {
+						shader += reg;
+					}
+					else if (i > pos + 1) {
+						shader += s[i];
+					}
+				}
+				shader += "\n";
+			}
+		}
+		else {
+			// before dcl
+			shader += s + "\n";
+		}
+	}
+	return shader;
+}
+
 HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	HRESULT hr;
+	UINT64 crc = fnv_64_buf(pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
 	dumpShader("vs", pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
 	dumpShader("ps", pDesc->PS.pShaderBytecode, pDesc->PS.BytecodeLength);
 	dumpShader("ds", pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
 	dumpShader("gs", pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
 	dumpShader("hs", pDesc->HS.pShaderBytecode, pDesc->HS.BytecodeLength);
-	return sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState(This, pDesc, riid, ppPipelineState);
+
+	vector<byte> v;
+	byte* bArray = (byte*)pDesc->VS.pShaderBytecode;
+	for (int i = 0; i < pDesc->VS.BytecodeLength; i++) {
+		v.push_back(bArray[i]);
+	}
+	vector<byte> ASM = disassembler(v);
+	if (ASM.size() == 0 || ASM[0] == ';') {
+		dumpShaderRAW("vsDXIL", ASM.data(), ASM.size(), crc);
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else {
+		dumpShaderRAW("vsNormal", ASM.data(), ASM.size(), crc);
+	}
+
+	string shaderL = changeASM(ASM, true);
+	string shaderR = changeASM(ASM, false);
+
+	if (shaderL == "") {
+		dumpShaderRAW("vsNoOutput", ASM.data(), ASM.size(), crc);
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+
+	vector<byte> a;
+	PSO pso = {};
+	pso.crc = crc;
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC* modDesc = (D3D12_GRAPHICS_PIPELINE_STATE_DESC*)pDesc;
+	
+	a.clear();
+	for (int i = 0; i < shaderL.length(); i++) {
+		a.push_back(shaderL[i]);
+	}
+	dumpShaderRAW("vsLeft", a.data(), a.size(), crc);
+	auto compiled = assembler(a, v);
+	modDesc->VS.pShaderBytecode = compiled.data();
+	modDesc->VS.BytecodeLength = compiled.size();	
+	hr = sCreateGraphicsPipelineState_Hook.fn(This, modDesc, riid, ppPipelineState);
+	pso.Left = (ID3D12PipelineState*)*ppPipelineState;
+
+	a.clear();
+	for (int i = 0; i < shaderR.length(); i++) {
+		a.push_back(shaderR[i]);
+	}
+	dumpShaderRAW("vsRight", a.data(), a.size(), crc);
+	compiled = assembler(a, v);
+	modDesc->VS.pShaderBytecode = compiled.data();
+	modDesc->VS.BytecodeLength = compiled.size();
+	hr = sCreateGraphicsPipelineState_Hook.fn(This, modDesc, riid, ppPipelineState);
+	pso.Right = (ID3D12PipelineState*)*ppPipelineState;
+	PSOmap[pso.Right] = pso;
+	return hr;
 }
 
-typedef HRESULT(STDMETHODCALLTYPE* D3D12_CCPS)(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState);
-static struct {
-	SIZE_T nHookId;
-	D3D12_CCPS fnCreateComputePipelineState;
-} sCreateComputePipelineState_Hook = { 1, NULL };
 HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
 	dumpShader("cs", pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
-	return sCreateComputePipelineState_Hook.fnCreateComputePipelineState(This, pDesc, riid, ppPipelineState);
+	return sCreateComputePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+}
+
+HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D3D12_PIPELINE_STATE_STREAM_DESC* pDesc, REFIID riid, void** ppPipelineState) {
+	HRESULT hr;
+	DWORD64* stream64 = (DWORD64*)pDesc->pPipelineStateSubobjectStream;
+	UINT64 crc = 0;
+	void* vsPtr = nullptr;
+	DWORD64 vsSize = 0;
+	int vsOffset = 0;
+
+	if ((stream64[3] & 0xF) == 6) {
+		dumpShader("cs", (void*)stream64[4], stream64[5]);
+		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	} 
+	else if ((stream64[8] & 0xF) == 1 && (stream64[11] & 0xF) == 5) {
+		vsOffset = 8;
+		vsPtr = (void*)stream64[vsOffset + 1];
+		vsSize = stream64[vsOffset + 2];
+		crc = fnv_64_buf(vsPtr, vsSize);
+		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("hs", (void*)stream64[12], stream64[13]);
+		dumpShader("gs", (void*)stream64[15], stream64[16]);
+		dumpShader("ds", (void*)stream64[18], stream64[19]);
+		dumpShader("ps", (void*)stream64[21], stream64[22]);
+	}
+	else if ((stream64[2] & 0xF) == 1 && (stream64[5] & 0xF) == 2) {
+		vsOffset = 2;
+		vsPtr = (void*)stream64[vsOffset + 1];
+		vsSize = stream64[vsOffset + 2];
+		crc = fnv_64_buf(vsPtr, vsSize);
+		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("ps", (void*)stream64[6], stream64[7]);
+		dumpShader("ds", (void*)stream64[9], stream64[10]);
+		dumpShader("gs", (void*)stream64[12], stream64[13]);
+		dumpShader("hs", (void*)stream64[15], stream64[16]);
+	}
+	else {
+		dumpShader("CPS", pDesc->pPipelineStateSubobjectStream, pDesc->SizeInBytes);
+		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+
+	vector<byte> v;
+	byte* bArray = (byte*)vsPtr;
+	for (int i = 0; i < vsSize; i++) {
+		v.push_back(bArray[i]);
+	}
+	vector<byte> ASM = disassembler(v);
+	if (ASM.size() == 0 || ASM[0] == ';') {
+		dumpShaderRAW("vsDXIL", ASM.data(), ASM.size(), crc);
+		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else {
+		dumpShaderRAW("vsNormal", ASM.data(), ASM.size(), crc);
+	}
+
+	string shaderL = changeASM(ASM, true);
+	string shaderR = changeASM(ASM, false);
+
+	if (shaderL == "") {
+		dumpShaderRAW("vsNoOutput", ASM.data(), ASM.size(), crc);
+		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+
+	vector<byte> a;
+	PSO pso = {};
+	pso.crc = crc;
+
+	a.clear();
+	for (int i = 0; i < shaderL.length(); i++) {
+		a.push_back(shaderL[i]);
+	}
+	dumpShaderRAW("vsLeft", a.data(), a.size(), crc);
+	auto compiled = assembler(a, v);
+	stream64[vsOffset + 1] = (DWORD64)compiled.data();
+	stream64[vsOffset + 2] = compiled.size();
+	hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	pso.Left = (ID3D12PipelineState*)*ppPipelineState;
+
+	a.clear();
+	for (int i = 0; i < shaderR.length(); i++) {
+		a.push_back(shaderR[i]);
+	}
+	dumpShaderRAW("vsRight", a.data(), a.size(), crc);
+	compiled = assembler(a, v);
+	stream64[vsOffset + 1] = (DWORD64)compiled.data();
+	stream64[vsOffset + 2] = compiled.size();
+	hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	pso.Right = (ID3D12PipelineState*)*ppPipelineState;
+	PSOmap[pso.Right] = pso;
+	return hr;
+}
+
+void D3D12CL_SetPipelineState(ID3D12GraphicsCommandList* This, ID3D12PipelineState* pPipelineState) {
+	if (PSOmap.count(pPipelineState) == 1) {
+		PSO* pso = &PSOmap[pPipelineState];
+		LogInfo("SetPipeineStage: %016llX\n", pso->crc);
+		if (gl_left) {
+			sSetPipelineState_Hook.fn(This, pso->Left);
+		}
+		else {
+			sSetPipelineState_Hook.fn(This, pso->Right);
+		}
+	}
+	else {
+		LogInfo("SetPipeineStage: unknown\n");
+		sSetPipelineState_Hook.fn(This, pPipelineState);
+	}
+}
+
+HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList(ID3D12Device* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator* pCommandAllocator, ID3D12PipelineState* pInitialState, REFIID riid, void** ppCommandList) {
+	HRESULT hr = sCreateCommandList_Hook.fn(This, nodeMask, type, pCommandAllocator, pInitialState, riid, ppCommandList);
+	if (!gl_GraphicsCommandList_hooked) {
+		LogInfo("Hooking GraphicsCommandList\n");
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppCommandList;
+
+		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
+		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
+
+		gl_GraphicsCommandList_hooked = true;
+	}
+	LogInfo("CreateCommandList\n");
+	return hr;
 }
 #pragma endregion
 
 #pragma region DXGI
-HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
-	HRESULT hr = sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
-	LogInfo("Present\n");
-	return hr;
+void beforePresent() {
+	gl_left = !gl_left;
 }
 
-HRESULT STDMETHODCALLTYPE DXGIH_Present0(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags) {
-	HRESULT hr = sDXGI_Present0_Hook.fnDXGI_Present0(This, SyncInterval, Flags);
-	LogInfo("Present0\n");
-	return hr;
+HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
+	beforePresent();
+	LogInfo("Present\n");
+	return sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
 }
 
 HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters) {
-	HRESULT hr = sDXGI_Present1_Hook.fnDXGI_Present1(This, SyncInterval, Flags, pPresentParameters);
+	beforePresent();
 	LogInfo("Present1\n");
-	return hr;
+	return sDXGI_Present1_Hook.fnDXGI_Present1(This, SyncInterval, Flags, pPresentParameters);
 }
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
 	LogInfo("CreateSwapChain\n");
 	gl_numBbackBuffers = pDesc->BufferCount;
-	HRESULT hr = sCreateSwapChain_Hook.fnCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
+	HRESULT hr = sCreateSwapChain_Hook.fn(This, pDevice, pDesc, ppSwapChain);
 	if (!gl_SwapChain_hooked) {
 		LogInfo("SwapChain hooked\n");
 		gl_SwapChain_hooked = true;
@@ -233,52 +536,53 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pD
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
 	LogInfo("CreateSwapChainForHWND\n");
 	gl_numBbackBuffers = pDesc->BufferCount;
-	HRESULT hr = sCreateSwapChainForHWND_Hook.fnCreateSwapChainForHWND(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+	HRESULT hr = sCreateSwapChainForHWND_Hook.fn(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
 	if (!gl_SwapChain1_hooked) {
 		LogInfo("SwapChain1 hooked\n");
 		gl_SwapChain1_hooked = true;
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
-		DXGI_Present0 origPresent0 = (DXGI_Present0)(*vTable)[9];
-		cHookMgr.Hook(&(sDXGI_Present0_Hook.nHookId), (LPVOID*)&(sDXGI_Present0_Hook.fnDXGI_Present0), origPresent0, DXGIH_Present0);
-
+		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fnDXGI_Present), origPresent, DXGIH_Present);
 		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
 		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fnDXGI_Present1), origPresent1, DXGIH_Present1);
 	}
 	return hr;
 }
-
-void HackedPresent() {
-	IDXGIFactory *pFactory1;
-	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
-	DWORD_PTR*** vTable = (DWORD_PTR***)pFactory1;
-	DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
-	cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fnCreateSwapChain), origCSC, DXGI_CreateSwapChain);
-	pFactory1->Release();
-
-	IDXGIFactory2* pFactory2;
-	hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
-	vTable = (DWORD_PTR***)pFactory2;
-	DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
-	cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fnCreateSwapChainForHWND), origCSCFH, DXGI_CreateSwapChainForHWND);
-	pFactory2->Release();
-}
 #pragma endregion
 
 void hookDevice(void** ppDevice) {
-	ID3D12Device* gl_pDevice = (ID3D12Device*)(*ppDevice);
 	if (!gl_hookedDevice) {
 		LogInfo("Hooking device\n");
 
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppDevice;
 
-		D3D12_CGPS origCGPS = (D3D12_CGPS)(*vTable)[10];
-		D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
+		if (!gl_noHook) {
+			D3D12_CGPS origCGPS = (D3D12_CGPS)(*vTable)[10];
+			cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fn), origCGPS, D3D12_CreateGraphicsPipelineState);
+			D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
+			cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fn), origCCPS, D3D12_CreateComputePipelineState);
+			D3D12_CCL origCCL = (D3D12_CCL)(*vTable)[12];
+			cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
+			D3D12_CPS origCPS = (D3D12_CPS)(*vTable)[47];
+			cHookMgr.Hook(&(sCreatePipelineState_Hook.nHookId), (LPVOID*)&(sCreatePipelineState_Hook.fn), origCPS, D3D12_CreatePipelineState);
+		}
+		
+		if (!gl_noPresent) {
+			IDXGIFactory1* pFactory1;
+			HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
+			DWORD_PTR*** vTable = (DWORD_PTR***)pFactory1;
+			DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
+			cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fn), origCSC, DXGI_CreateSwapChain);
+			pFactory1->Release();
 
-		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fnCreateGraphicsPipelineState), origCGPS, D3D12_CreateGraphicsPipelineState);
-		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fnCreateComputePipelineState), origCCPS, D3D12_CreateComputePipelineState);
-
-		HackedPresent();
+			IDXGIFactory2* pFactory2;
+			hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
+			vTable = (DWORD_PTR***)pFactory2;
+			DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
+			cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fn), origCSCFH, DXGI_CreateSwapChainForHWND);
+			pFactory2->Release();
+		}
 
 		gl_hookedDevice = true;
 	}
@@ -312,7 +616,6 @@ void _fastcall SetAppCompatStringPointer(unsigned __int64 a1, const char* a2) {
 	return fn(a1, a2);
 } // 103
 
-
 HRESULT WINAPI D3D12CoreCreateLayeredDevice(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj) {
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreCreateLayeredDevice");
@@ -330,7 +633,6 @@ HRESULT WINAPI D3D12CoreRegisterLayers(const void *u0, DWORD u1) {
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreRegisterLayers");
 	return fn(u0, u1);
 } // 106
-
 
 HRESULT WINAPI D3D12CreateRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
 	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);

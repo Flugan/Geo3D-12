@@ -11,8 +11,12 @@
 #include <tchar.h>
 #include "stdint.h"
 #include "D3DCompiler.h"
+#include "dxcapi.h"
+#include <iostream>
+#include <direct.h>
 #include <string>
 #include <vector>
+#include <map>
 #include <unordered_map>
 
 using namespace std;
@@ -39,8 +43,8 @@ struct token_operand
 
 vector<DWORD> assembleIns(string s);
 vector<byte> readFile(string fileName);
-vector<DWORD> ComputeHash(byte const* input, DWORD size);
-vector<string> stringToLines(const char* start, int size);
+vector<DWORD> ComputeHash(byte const* input, size_t size);
+vector<string> stringToLines(const char* start, size_t size);
 DWORD strToDWORD(string s);
 string convertF(DWORD original);
 vector<byte> disassembler(vector<byte> buffer);

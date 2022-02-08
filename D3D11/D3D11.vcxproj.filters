@@ -18,18 +18,18 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="proxy11dll.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Shaders.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Assembler.cpp">
+    <ClCompile Include="proxy11dll.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="gamelist.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
+    <None Include="proxy11dll.def">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

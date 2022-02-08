@@ -19,11 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="device12Vtbl.txt" />
-    <Text Include="IDXGIFactory2Vtbl.txt" />
-    <Text Include="IDXGIFactory1Vtbl.txt" />
-    <Text Include="SwapChainVtbl.txt" />
-    <Text Include="SwapChain1Vtbl.txt" />
+    <Text Include="ID3D12DeviceVtbl.txt" />
+    <Text Include="ID3D12GraphicsCommandListVtbl.txt" />
+    <Text Include="IDXGIFactoryVtbl.txt" />
+    <Text Include="IDXGISwapChainVtbl.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\D3D_Shaders\Assembler.cpp" />
@@ -92,8 +91,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
-    <IntDir>$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)x32\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)x32\$(Configuration)\</IntDir>
     <LibraryPath>$(SolutionDir);$(LibraryPath);</LibraryPath>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
@@ -102,8 +101,8 @@
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
-    <IntDir>$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)x32\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)x32\$(Configuration)\</IntDir>
     <LibraryPath>$(SolutionDir);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -125,7 +124,7 @@
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ModuleDefinitionFile>d3d12.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>dxgi.lib;..\Nektra\NktHookLib_Debug.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxgi.lib;..\Nektra\NktHookLib_Debug.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -143,7 +142,7 @@
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ModuleDefinitionFile>d3d12.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>dxgi.lib;..\Nektra\NktHookLib64_Debug.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxgi.lib;..\Nektra\NktHookLib64_Debug.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -165,7 +164,7 @@
       <ModuleDefinitionFile>d3d12.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>dxgi.lib;..\Nektra\NktHookLib.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxgi.lib;..\Nektra\NktHookLib.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -187,7 +186,7 @@
       <ModuleDefinitionFile>d3d12.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>dxgi.lib;..\Nektra\NktHookLib64.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxgi.lib;..\Nektra\NktHookLib64.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
