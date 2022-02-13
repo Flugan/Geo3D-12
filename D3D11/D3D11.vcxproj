@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\D3D_Shaders\Assembler.cpp" />
     <ClCompile Include="proxy11dll.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -132,7 +133,7 @@
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ModuleDefinitionFile>proxy11dll.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>%(AdditionalDependencies);Nektra\NktHookLib64_Debug.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);Nektra\NktHookLib64_Debug.lib;dxcompiler.lib;d3dcompiler.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -176,7 +177,7 @@
       <ModuleDefinitionFile>proxy11dll.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>%(AdditionalDependencies);Nektra\NktHookLib64.lib</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxgi.lib;..\Nektra\NktHookLib64.lib;D3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

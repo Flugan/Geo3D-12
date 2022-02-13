@@ -1,6 +1,7 @@
 // proxydll.cpp
 #include "proxy11dll.h"
 #include "Nektra\NktHookLib.h"
+#include "stdafx.h"
 
 // global variables
 #pragma data_seg (".d3d11_shared")
@@ -8,6 +9,8 @@ HINSTANCE           gl_hOriginalDll;
 bool				gl_hookedDevice = false;
 bool				gl_dump = true;
 char				cwd[MAX_PATH];
+string				conv = "1.0";
+string				sep = "0.1";
 #pragma data_seg ()
 
 CNktHookLib cHookMgr;
@@ -54,6 +57,88 @@ static UINT64 fnv_64_buf(const void *buf, size_t len)
 	return hval;
 }
 
+string changeASM(vector<byte> ASM, bool left) {
+	auto lines = stringToLines((char*)ASM.data(), ASM.size());
+	string shaderL;
+	string shaderR;
+	string shader;
+	string oReg;
+	bool dcl = false;
+	bool dcl_ICB = false;
+	int temp = 0;
+	for (int i = 0; i < lines.size(); i++) {
+		string s = lines[i];
+		if (s.find("dcl") == 0) {
+			dcl = true;
+			dcl_ICB = false;
+			if (s.find("dcl_output_siv") == 0 && s.find("position") != string::npos) {
+				oReg = s.substr(15, 2);
+				shader += s + "\n";
+			}
+			else if (s.find("dcl_temps") == 0) {
+				string num = s.substr(10);
+				temp = atoi(num.c_str()) + 2;
+				shader += "dcl_temps " + to_string(temp) + "\n";
+			}
+			else if (s.find("dcl_immediateConstantBuffer") == 0) {
+				dcl_ICB = true;
+				shader += s + "\n";
+			}
+			else {
+				shader += s + "\n";
+			}
+		}
+		else if (dcl_ICB == true) {
+			shader += s + "\n";
+		}
+		else if (dcl == true) {
+			// after dcl
+			if (s.find("ret") < s.size()) {
+				string changeSep = left ? "l(-" + sep + ")" : "l(" + sep + ")";
+				shader +=
+					"eq r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(1.0)\n" +
+					"if_z r" + to_string(temp - 2) + ".x\n"
+					"add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
+					"mad r" + to_string(temp - 2) + ".x, r" + to_string(temp - 2) + ".x, " + changeSep + ", r" + to_string(temp - 1) + ".x\n" +
+					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n" +
+					"ret\n" +
+					"endif\n";
+			}
+			if (oReg.size() == 0) {
+				// no output
+				return "";
+			}
+			if (temp == 0) {
+				// add temps
+				temp = 2;
+				shader += "dcl_temps 2\n";
+			}
+			shader += s + "\n";
+			auto pos = s.find(oReg);
+			if (pos != string::npos) {
+				string reg = "r" + to_string(temp - 1);
+				for (int i = 0; i < s.size(); i++) {
+					if (i < pos) {
+						shader += s[i];
+					}
+					else if (i == pos) {
+						shader += reg;
+					}
+					else if (i > pos + 1) {
+						shader += s[i];
+					}
+				}
+				shader += "\n";
+			}
+		}
+		else {
+			// before dcl
+			shader += s + "\n";
+		}
+	}
+	return shader;
+}
+
 #pragma region Dump
 int fileExists(TCHAR* file) {
 	WIN32_FIND_DATA FindFileData;
@@ -86,8 +171,43 @@ void dump(char* type, const void* pData, SIZE_T length) {
 }
 
 HRESULT STDMETHODCALLTYPE D3D11_CreateVertexShader(ID3D11Device *This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11VertexShader **ppVertexShader) {
+	HRESULT hr;
 	dump("vs", pShaderBytecode, BytecodeLength);
-	return sCreateVertexShader_Hook.fn(This, pShaderBytecode, BytecodeLength, pClassLinkage, ppVertexShader);
+
+	vector<byte> v;
+	byte* bArray = (byte*)pShaderBytecode;
+	for (int i = 0; i < BytecodeLength; i++) {
+		v.push_back(bArray[i]);
+	}
+	vector<byte> ASM = disassembler(v);
+	
+	string shaderL = changeASM(ASM, true);
+	string shaderR = changeASM(ASM, false);
+
+	if (shaderL == "") {
+		return sCreateVertexShader_Hook.fn(This, pShaderBytecode, BytecodeLength, pClassLinkage, ppVertexShader);
+	}
+
+	vector<byte> a;
+	VSO vso = {};
+	
+	a.clear();
+	for (int i = 0; i < shaderL.length(); i++) {
+		a.push_back(shaderL[i]);
+	}
+	auto compiled = assembler(a, v);
+	hr = sCreateVertexShader_Hook.fn(This, compiled.data(), compiled.size(), pClassLinkage, ppVertexShader);
+	vso.Left = (ID3D11VertexShader*)*ppVertexShader;
+
+	a.clear();
+	for (int i = 0; i < shaderR.length(); i++) {
+		a.push_back(shaderR[i]);
+	}
+	compiled = assembler(a, v);
+	hr = sCreateVertexShader_Hook.fn(This, compiled.data(), compiled.size(), pClassLinkage, ppVertexShader);
+	vso.Left = (ID3D11VertexShader*)*ppVertexShader;
+	VSOmap[vso.Right] = vso;
+	return hr;
 }
 HRESULT STDMETHODCALLTYPE D3D11_CreatePixelShader(ID3D11Device *This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11PixelShader **ppPixelShader) {
 	dump("ps", pShaderBytecode, BytecodeLength);
