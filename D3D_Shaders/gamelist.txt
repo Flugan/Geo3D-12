@@ -1,20 +1,27 @@
 ;DX12 games
-;c:\Flugan\Amid evil
-;c:\Flugan\Hellblade
 
-;c:\Flugan\Alan Wake Remastered
+;DXIL shaders not flawless
+;some games have some weird extended mad funcions
+;c:\Flugan\Amid evil
 ;c:\Flugan\Control
-;c:\Flugan\Cyberpunk 2077
 ;c:\Flugan\Death Stranding
 ;c:\Flugan\FIST
 ;c:\Flugan\Godfall
-;c:\Flugan\HITMAN 3
-;c:\Flugan\Horizon Zero Dawn
-;c:\Flugan\Marvel's Guardians of the Galaxy
+;c:\Flugan\Hellblade
 ;c:\Flugan\Metro Exodus
-;c:\Flugan\Metro Exodus Enhanced Edition
 ;c:\Flugan\Mortal Shell
-;c:\Flugan\Red Dead Redemption 2
 ;c:\Flugan\Tetris Effect
 ;c:\Flugan\The Fabled Woods
-c:\Flugan\The Medium
+;c:\Flugan\The Medium
+
+;has unsupported operands
+;c:\Flugan\Resident Evil 2
+
+;DXIL ostly
+;c:\Flugan\Alan Wake Remastered
+;c:\Flugan\Cyberpunk 2077
+;c:\Flugan\Horizon Zero Dawn
+;c:\Flugan\Marvel's Guardians of the Galaxy
+;c:\Flugan\Metro Exodus Enhanced Edition
+;c:\Flugan\Red Dead Redemption 2
+;c:\Flugan\Resident Evil Village

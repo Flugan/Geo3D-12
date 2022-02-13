@@ -10,35 +10,42 @@ static map<string, vector<DWORD>> codeBin;
 string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
-	string orig(lit);
-	if (original < 1000) {
+	vector<DWORD> hex = { 0x0000ffff, 0x7f800000, 0x7fffffff, 0xffaa5500, 0xffc10000,
+		0x7fc10000, 0xfffeffff, 0xffe699f1 };
+	bool bHex = false;
+	for (int i = 0; i < hex.size(); i++) {
+		if (original == hex[i]) {
+			bHex = true;
+			break;
+		}
+	}
+	float fOriginal = reinterpret_cast<float&>(original);
+	if (bHex) {
+		sprintf_s(buf, 80, "0x%08x", original);
+	}
+	else if (original < 0xffff) {
 		sprintf_s(buf, 80, "%d", original);
 	}
-	else if (original > 0xFFFF0000) {
+	else if (original > 0xffff0000) {
 		sprintf_s(buf, 80, "%d", original);
 	}
-	else {
-		sprintf_s(buf, 80, "0x%08X", original);
-	}
-	/*
-	else {
-		float fOriginal = reinterpret_cast<float&>(original);
+	else {	
 		sprintf_s(buf2, 80, "%.10E", fOriginal);
 		int len = strlen(buf2);
 		if (buf2[len - 3] == '-') {
 			int exp = atoi(buf2 + len - 2);
 			switch (exp) {
 			case 1:
-				sprintf_s(buf, 80, "%.8f", fOriginal);
-				break;
-			case 2:
 				sprintf_s(buf, 80, "%.9f", fOriginal);
 				break;
-			case 3:
+			case 2:
 				sprintf_s(buf, 80, "%.10f", fOriginal);
 				break;
+			case 3:
+				sprintf_s(buf, 80, "%.11f", fOriginal);
+				break;
 			default:
-				sprintf_s(buf, 80, "%.8E", fOriginal);
+				sprintf_s(buf, 80, "%.9E", fOriginal);
 				break;
 			}
 		}
@@ -46,17 +53,16 @@ string convertF(DWORD original, const char* lit) {
 			sprintf_s(buf, 80, "%.7f", fOriginal);
 		}
 	}
-	*/
 	string sLiteral(buf);
-
+	
 	DWORD newDWORD = strToDWORD(sLiteral);
+	if (failFile == NULL)
+		fopen_s(&failFile, "debug.txt", "wb");
 	if (newDWORD != original) {
-		if (failFile == NULL)
-			fopen_s(&failFile, "debug.txt", "wb");
 		FILE* f = failFile;
 		if (f != 0) {
-			fprintf(f, "orig: %s: %08X\n", lit, original);
-			fprintf(f, "new: %s n:%08X\n", sLiteral.c_str(), newDWORD);
+			fprintf(f, "orig: %s <> %08X\n", lit, original);
+			fprintf(f, "new:  %s <> %08X\n", sLiteral.c_str(), newDWORD);
 			fprintf(f, "\n");
 		}
 	}
@@ -466,16 +472,12 @@ void handleSwizzle(string s, token_operand* tOp, bool special = false) {
 }
 
 DWORD strToDWORD(string s) {
-	/*
-	if (s == "-1.#IND0000")
-		return 0xFFC00000;
-	if (s == "1.#INF0000")
-		return 0x7F800000;
-	if (s == "-1.#INF0000")
-		return 0xFF800000;
-	if (s == "-1.#QNAN000")
-		return 0xFFC10000;
-	*/
+	if (s == "-nan") {
+		return 0xffaa5502;
+	}
+	if (s == "nan") {
+		return 0xffaa5501;
+	}
 	if (s.substr(0, 2) == "0x") {
 		DWORD decimalValue;
 		sscanf_s(s.c_str(), "0x%x", &decimalValue);
@@ -1123,6 +1125,12 @@ vector<DWORD> assembleIns(string s) {
 		ins->length = 1;
 		v.push_back(op);
 	}
+	else if (o == "sync_uglobal_t") {
+		ins->opcode = 190;
+		ins->_11_23 = 9;
+		ins->length = 1;
+		v.push_back(op);
+	}
 	else if (o == "sync_g") {
 		ins->opcode = 190;
 		ins->_11_23 = 2;
@@ -1317,7 +1325,7 @@ vector<DWORD> assembleIns(string s) {
 		}
 		for (int i = 0; i < numOps; i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
-	} else if (o == "dcl_uav_raw") {
+	} 	else if (o == "dcl_uav_raw") {
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 157;
 		v.insert(v.end(), os.begin(), os.end());
@@ -1326,6 +1334,13 @@ vector<DWORD> assembleIns(string s) {
 				v.push_back(atoi(w[2].substr(6).c_str()));
 		}
 		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
+	} else if (o == "dcl_uav_raw_glc") {
+		vector<DWORD> os = assembleOp(w[1], true);
+		ins->opcode = 157;
+		v.insert(v.end(), os.begin(), os.end());
+		ins->length = 1 + v.size();
+		ins->_11_23 = 32;
 		v.insert(v.begin(), op);
 	} else if (o == "dcl_input") {
 		ins->opcode = 95;

@@ -18,8 +18,11 @@ using namespace std;
 
 struct PSO {
 	UINT64 crc;
+	bool cs;
+	bool dxil;
 	ID3D12PipelineState* Left;
 	ID3D12PipelineState* Right;
+	ID3D12PipelineState* Neutral;
 };
 
 map<ID3D12PipelineState*, PSO> PSOmap;
