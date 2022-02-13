@@ -1,8 +1,8 @@
 ;DX12 games
-
-;DXIL shaders not flawless
-;some games have some weird extended mad funcions
 ;c:\Flugan\Amid evil
+;c:\Flugan\Bright Memory
+;c:\Flugan\Bright Memory Infinite
+c:\Flugan\Borderlands 3
 ;c:\Flugan\Control
 ;c:\Flugan\Death Stranding
 ;c:\Flugan\FIST
@@ -14,12 +14,15 @@
 ;c:\Flugan\The Fabled Woods
 ;c:\Flugan\The Medium
 
+
+
 ;has unsupported operands
 ;c:\Flugan\Resident Evil 2
 
-;DXIL ostly
+;DXIL mostly
 ;c:\Flugan\Alan Wake Remastered
 ;c:\Flugan\Cyberpunk 2077
+;c:\Flugan\Deathloop
 ;c:\Flugan\Horizon Zero Dawn
 ;c:\Flugan\Marvel's Guardians of the Galaxy
 ;c:\Flugan\Metro Exodus Enhanced Edition
