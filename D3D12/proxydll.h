@@ -12,6 +12,12 @@ static struct {
 	D3D12_CCL fn;
 } sCreateCommandList_Hook = { 0, NULL };
 
+typedef HRESULT(STDMETHODCALLTYPE* D3D12_CCL1)(ID3D12Device4* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, D3D12_COMMAND_LIST_FLAGS flags, REFIID riid, void** ppCommandList);
+static struct {
+	SIZE_T nHookId;
+	D3D12_CCL1 fn;
+} sCreateCommandList1_Hook = { 0, NULL };
+
 typedef HRESULT(STDMETHODCALLTYPE* D3D12_CGPS)(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState);
 static struct {
 	SIZE_T nHookId;

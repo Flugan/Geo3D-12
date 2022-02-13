@@ -12,15 +12,13 @@ HINSTANCE           gl_hOriginalDll = NULL;
 bool				gl_hookedDevice = false;
 bool				gl_SwapChain_hooked = false;
 bool				gl_SwapChain1_hooked = false;
-bool				gl_GraphicsCommandList_hooked = false;
+UINT64				gl_GraphicsCommandList_hooked = 0;
+UINT64				gl_GraphicsCommandList1_hooked = 0;
 bool				gl_left = true;
 FILE*				LogFile = NULL;
 bool				gl_log = false;
 bool				gl_dumpBin = false;
 bool				gl_dumpASM = false;
-bool				gl_justDump = false;
-bool				gl_noHook = false;
-bool				gl_noPresent = false;
 bool				gl_debugAttach = false;
 string				sep = "0.1";
 string				conv = "1.0";
@@ -123,6 +121,7 @@ BOOL WINAPI DllMain(
 	switch (fdwReason) {
 	case DLL_PROCESS_ATTACH:
 		gl_hInstDLL = hinst;
+		CreateDirectory("C:\\Flugan", NULL);
 		readINI();
 		if (gl_log) {
 			LogFile = _fsopen("c:\\Flugan\\d3d12.log.txt", "w", _SH_DENYNO);
@@ -174,10 +173,10 @@ void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0
 	char path[MAX_PATH];
 	path[0] = 0;
 	if (length >= 0) {
-		UINT64 crc = fnv_64_buf(pData, length);
-		if (crc2 != 0)
-			crc = crc2;
 		if (gl_dumpBin) {
+			UINT64 crc = fnv_64_buf(pData, length);
+			if (crc2 != 0)
+				crc = crc2;
 			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
 			sprintf_s(path, MAX_PATH, "c:\\Flugan\\ShaderCache\\%016llX-%s.txt", crc, type);
 			LogInfo("Dump RAW: %s\n", path);
@@ -197,10 +196,10 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 	char path[MAX_PATH];
 	path[0] = 0;
 	if (length > 0) {
-		UINT64 crc = fnv_64_buf(pData, length);
-		if (crc2 != 0)
-			crc = crc2;
 		if (gl_dumpBin) {
+			UINT64 crc = fnv_64_buf(pData, length);
+			if (crc2 != 0)
+				crc = crc2;
 			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
 			sprintf_s(path, MAX_PATH, "c:\\Flugan\\ShaderCache\\%016llX-%s.bin", crc, type);
 			LogInfo("Dump BIN: %s\n", path);
@@ -213,6 +212,9 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 			}
 		}
 		if (gl_dumpASM) {
+			UINT64 crc = fnv_64_buf(pData, length);
+			if (crc2 != 0)
+				crc = crc2;
 			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
 			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-%s.txt", crc, type);
 			LogInfo("Dump ASM: %s\n", path);
@@ -273,9 +275,14 @@ string changeASM(vector<byte> ASM, bool left) {
 			// after dcl
 			if (s.find("ret") < s.size()) {
 				string changeSep = left ? "l(-" + sep + ")" : "l(" + sep + ")";
-				shader += "add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
+				shader +=
+					"eq r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(1.0)\n" +
+					"if_z r" + to_string(temp - 2) + ".x\n"
+					"add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
 					"mad r" + to_string(temp - 2) + ".x, r" + to_string(temp - 2) + ".x, " + changeSep + ", r" + to_string(temp - 1) + ".x\n" +
-					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n";
+					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n" +
+					"ret\n" + 
+					"endif\n";
 			}
 			if (oReg.size() == 0) {
 				// no output
@@ -329,18 +336,32 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	vector<byte> ASM = disassembler(v);
 	if (ASM.size() == 0 || ASM[0] == ';') {
 		dumpShaderRAW("vsDXIL", ASM.data(), ASM.size(), crc);
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		HRESULT hr = sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		PSO pso = {};
+		pso.crc = crc;
+		pso.dxil = true;
+		pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
+		PSOmap[pso.Neutral] = pso;
+		return hr;
 	}
 	else {
 		dumpShaderRAW("vsNormal", ASM.data(), ASM.size(), crc);
 	}
+	// Removed due to Hellblade, ok solutioin for now
+	if (crc == 0xF66E2C466DD0C233)
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 
 	string shaderL = changeASM(ASM, true);
 	string shaderR = changeASM(ASM, false);
 
 	if (shaderL == "") {
 		dumpShaderRAW("vsNoOutput", ASM.data(), ASM.size(), crc);
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		HRESULT hr = sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		PSO pso = {};
+		pso.crc = crc;
+		pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
+		PSOmap[pso.Neutral] = pso;
+		return hr;
 	}
 
 	vector<byte> a;
@@ -355,7 +376,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	dumpShaderRAW("vsLeft", a.data(), a.size(), crc);
 	auto compiled = assembler(a, v);
 	modDesc->VS.pShaderBytecode = compiled.data();
-	modDesc->VS.BytecodeLength = compiled.size();	
+	modDesc->VS.BytecodeLength = compiled.size(); 
 	hr = sCreateGraphicsPipelineState_Hook.fn(This, modDesc, riid, ppPipelineState);
 	pso.Left = (ID3D12PipelineState*)*ppPipelineState;
 
@@ -375,7 +396,13 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
 	dumpShader("cs", pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
-	return sCreateComputePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	HRESULT hr = sCreateComputePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	PSO pso = {};
+	pso.crc = fnv_64_buf(pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
+	pso.cs = true;
+	pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
+	PSOmap[pso.Neutral] = pso;
+	return hr;
 }
 
 HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D3D12_PIPELINE_STATE_STREAM_DESC* pDesc, REFIID riid, void** ppPipelineState) {
@@ -385,23 +412,52 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 	void* vsPtr = nullptr;
 	DWORD64 vsSize = 0;
 	int vsOffset = 0;
-
+	
 	if ((stream64[3] & 0xF) == 6) {
 		dumpShader("cs", (void*)stream64[4], stream64[5]);
-		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	} 
-	else if ((stream64[8] & 0xF) == 1 && (stream64[11] & 0xF) == 5) {
+		HRESULT hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		PSO pso = {};
+		pso.crc = fnv_64_buf((void*)stream64[4], stream64[5]);
+		pso.cs = true;
+		pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
+		PSOmap[pso.Neutral] = pso;
+		return hr;
+	}
+	else if ((stream64[8] & 0xF) == 1 && 
+			(stream64[25] & 0xF) == 2 &&
+			(stream64[22] & 0xF) == 3 &&
+			(stream64[19] & 0xF) == 4 &&
+			(stream64[11] & 0xF) == 5) {
 		vsOffset = 8;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
 		crc = fnv_64_buf(vsPtr, vsSize);
 		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("ps", (void*)stream64[26], stream64[27]);
+		dumpShader("ds", (void*)stream64[23], stream64[24]);
+		dumpShader("gs", (void*)stream64[20], stream64[21]);
 		dumpShader("hs", (void*)stream64[12], stream64[13]);
-		dumpShader("gs", (void*)stream64[15], stream64[16]);
-		dumpShader("ds", (void*)stream64[18], stream64[19]);
-		dumpShader("ps", (void*)stream64[21], stream64[22]);
 	}
-	else if ((stream64[2] & 0xF) == 1 && (stream64[5] & 0xF) == 2) {
+	else if ((stream64[8] & 0xF) == 1 &&
+			(stream64[20] & 0xF) == 2 &&
+			(stream64[17] & 0xF) == 3 &&
+			(stream64[14] & 0xF) == 4 &&
+			(stream64[11] & 0xF) == 5) {
+		vsOffset = 8;
+		vsPtr = (void*)stream64[vsOffset + 1];
+		vsSize = stream64[vsOffset + 2];
+		crc = fnv_64_buf(vsPtr, vsSize);
+		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("ps", (void*)stream64[21], stream64[22]);
+		dumpShader("ds", (void*)stream64[18], stream64[19]);
+		dumpShader("gs", (void*)stream64[15], stream64[16]);
+		dumpShader("hs", (void*)stream64[12], stream64[13]);
+	}
+	else if ((stream64[2] & 0xF) == 1 &&
+			(stream64[5] & 0xF) == 2 &&
+			(stream64[8] & 0xF) == 3 &&
+			(stream64[11] & 0xF) == 4 &&
+			(stream64[14] & 0xF) == 5) {
 		vsOffset = 2;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
@@ -411,6 +467,38 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		dumpShader("ds", (void*)stream64[9], stream64[10]);
 		dumpShader("gs", (void*)stream64[12], stream64[13]);
 		dumpShader("hs", (void*)stream64[15], stream64[16]);
+	}
+	else if ((stream64[9] & 0xF) == 1 &&
+			(stream64[26] & 0xF) == 2 &&
+			(stream64[23] & 0xF) == 3 &&
+			(stream64[20] & 0xF) == 4 &&
+			(stream64[12] & 0xF) == 5 &&
+			(stream64[29] & 0xF) == 6) {
+		vsOffset = 9;
+		vsPtr = (void*)stream64[vsOffset + 1];
+		vsSize = stream64[vsOffset + 2];
+		crc = fnv_64_buf(vsPtr, vsSize);
+		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("ps", (void*)stream64[27], stream64[28]);
+		dumpShader("ds", (void*)stream64[24], stream64[25]);
+		dumpShader("gs", (void*)stream64[21], stream64[22]);
+		dumpShader("hs", (void*)stream64[13], stream64[14]);
+		dumpShader("cs", (void*)stream64[30], stream64[31]);
+	}
+	else if ((stream64[5] & 0xF) == 1 &&
+			(stream64[8] & 0xF) == 2 &&
+			(stream64[11] & 0xF) == 3 &&
+			(stream64[14] & 0xF) == 4 &&
+			(stream64[17] & 0xF) == 5) {
+		vsOffset = 5;
+		vsPtr = (void*)stream64[vsOffset + 1];
+		vsSize = stream64[vsOffset + 2];
+		crc = fnv_64_buf(vsPtr, vsSize);
+		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("ps", (void*)stream64[9], stream64[10]);
+		dumpShader("ds", (void*)stream64[12], stream64[13]);
+		dumpShader("gs", (void*)stream64[15], stream64[16]);
+		dumpShader("hs", (void*)stream64[18], stream64[19]);
 	}
 	else {
 		dumpShader("CPS", pDesc->pPipelineStateSubobjectStream, pDesc->SizeInBytes);
@@ -425,7 +513,13 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 	vector<byte> ASM = disassembler(v);
 	if (ASM.size() == 0 || ASM[0] == ';') {
 		dumpShaderRAW("vsDXIL", ASM.data(), ASM.size(), crc);
-		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		HRESULT hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		PSO pso = {};
+		pso.crc = crc;
+		pso.dxil = true;
+		pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
+		PSOmap[pso.Neutral] = pso;
+		return hr;
 	}
 	else {
 		dumpShaderRAW("vsNormal", ASM.data(), ASM.size(), crc);
@@ -436,7 +530,12 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 
 	if (shaderL == "") {
 		dumpShaderRAW("vsNoOutput", ASM.data(), ASM.size(), crc);
-		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+		PSO pso = {};
+		pso.crc = crc;
+		pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
+		PSOmap[pso.Neutral] = pso;
+		return hr;
 	}
 
 	vector<byte> a;
@@ -453,7 +552,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 	stream64[vsOffset + 2] = compiled.size();
 	hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 	pso.Left = (ID3D12PipelineState*)*ppPipelineState;
-
+	
 	a.clear();
 	for (int i = 0; i < shaderR.length(); i++) {
 		a.push_back(shaderR[i]);
@@ -471,12 +570,18 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 void D3D12CL_SetPipelineState(ID3D12GraphicsCommandList* This, ID3D12PipelineState* pPipelineState) {
 	if (PSOmap.count(pPipelineState) == 1) {
 		PSO* pso = &PSOmap[pPipelineState];
-		LogInfo("SetPipeineStage: %016llX\n", pso->crc);
-		if (gl_left) {
-			sSetPipelineState_Hook.fn(This, pso->Left);
+		if (!pso->Left) {
+			LogInfo("SetPipeineStage: %016llX cs:%d dxil:%d\n", pso->crc, pso->cs, pso->dxil);
+			sSetPipelineState_Hook.fn(This, pso->Neutral);
 		}
 		else {
-			sSetPipelineState_Hook.fn(This, pso->Right);
+			LogInfo("SetPipeineStageSwapVS: %016llX\n", pso->crc);
+			if (gl_left) {
+				sSetPipelineState_Hook.fn(This, pso->Left);
+			}
+			else {
+				sSetPipelineState_Hook.fn(This, pso->Right);
+			}
 		}
 	}
 	else {
@@ -487,14 +592,25 @@ void D3D12CL_SetPipelineState(ID3D12GraphicsCommandList* This, ID3D12PipelineSta
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList(ID3D12Device* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator* pCommandAllocator, ID3D12PipelineState* pInitialState, REFIID riid, void** ppCommandList) {
 	HRESULT hr = sCreateCommandList_Hook.fn(This, nodeMask, type, pCommandAllocator, pInitialState, riid, ppCommandList);
-	if (!gl_GraphicsCommandList_hooked) {
-		LogInfo("Hooking GraphicsCommandList\n");
+	if (++gl_GraphicsCommandList_hooked == 1) {
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppCommandList;
 
 		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
 		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
+		LogInfo("Hooking CreateCommandList: %016llX\n", (UINT64)origSPS);
+	}
+	LogInfo("CreateCommandList\n");
+	return hr;
+}
 
-		gl_GraphicsCommandList_hooked = true;
+HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList1(ID3D12Device4* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, D3D12_COMMAND_LIST_FLAGS flags, REFIID riid, void** ppCommandList) {
+	HRESULT hr = sCreateCommandList1_Hook.fn(This, nodeMask, type, flags, riid, ppCommandList);
+	if (++gl_GraphicsCommandList1_hooked == 1) {
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppCommandList;
+
+		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
+		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
+		LogInfo("Hooking CreateCommandList1: %016llX\n", (UINT64)origSPS);
 	}
 	LogInfo("CreateCommandList\n");
 	return hr;
@@ -556,46 +672,46 @@ void hookDevice(void** ppDevice) {
 		LogInfo("Hooking device\n");
 
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppDevice;
-
-		if (!gl_noHook) {
-			D3D12_CGPS origCGPS = (D3D12_CGPS)(*vTable)[10];
-			cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fn), origCGPS, D3D12_CreateGraphicsPipelineState);
-			D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
-			cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fn), origCCPS, D3D12_CreateComputePipelineState);
-			D3D12_CCL origCCL = (D3D12_CCL)(*vTable)[12];
-			cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
-			D3D12_CPS origCPS = (D3D12_CPS)(*vTable)[47];
-			cHookMgr.Hook(&(sCreatePipelineState_Hook.nHookId), (LPVOID*)&(sCreatePipelineState_Hook.fn), origCPS, D3D12_CreatePipelineState);
-		}
 		
-		if (!gl_noPresent) {
-			IDXGIFactory1* pFactory1;
-			HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
-			DWORD_PTR*** vTable = (DWORD_PTR***)pFactory1;
-			DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
-			cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fn), origCSC, DXGI_CreateSwapChain);
-			pFactory1->Release();
+		D3D12_CGPS origCGPS = (D3D12_CGPS)(*vTable)[10];
+		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fn), origCGPS, D3D12_CreateGraphicsPipelineState);
+		D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
+		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fn), origCCPS, D3D12_CreateComputePipelineState);
+		D3D12_CCL origCCL = (D3D12_CCL)(*vTable)[12];
+		cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
+		D3D12_CPS origCPS = (D3D12_CPS)(*vTable)[47];
+		cHookMgr.Hook(&(sCreatePipelineState_Hook.nHookId), (LPVOID*)&(sCreatePipelineState_Hook.fn), origCPS, D3D12_CreatePipelineState);
+		D3D12_CCL1 origCCL1 = (D3D12_CCL1)(*vTable)[51];
+		cHookMgr.Hook(&(sCreateCommandList1_Hook.nHookId), (LPVOID*)&(sCreateCommandList1_Hook.fn), origCCL1, D3D12_CreateCommandList1);
 
-			IDXGIFactory2* pFactory2;
-			hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
-			vTable = (DWORD_PTR***)pFactory2;
-			DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
-			cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fn), origCSCFH, DXGI_CreateSwapChainForHWND);
-			pFactory2->Release();
-		}
+		IDXGIFactory1* pFactory1;
+		HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
+		vTable = (DWORD_PTR***)pFactory1;
+		DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
+		cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fn), origCSC, DXGI_CreateSwapChain);
+		pFactory1->Release();
 
+		IDXGIFactory2* pFactory2;
+		hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
+		vTable = (DWORD_PTR***)pFactory2;
+		DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
+		cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fn), origCSCFH, DXGI_CreateSwapChainForHWND);
+		pFactory2->Release();
+		
 		gl_hookedDevice = true;
 	}
 }
 
 #pragma region Exports
 HRESULT _fastcall GetBehaviorValue(const char* a1, unsigned __int64* a2) {
+	LogInfo("GetBehaviorValue\n");
 	typedef HRESULT(_fastcall* D3D12_Type)(const char *a, unsigned __int64 *b);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "GetBehaviorValue");
 	return fn(a1, a2);
 }; // 100
 
 HRESULT D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, const IID riid, void** ppDevice) {
+	LogInfo("D3D12CreateDevice\n");
 	typedef HRESULT(*D3D12_Type)(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLevel, const IID riid, void** ppDevice);
 	D3D12_Type fn = (D3D12_Type)NktHookLibHelpers::GetProcedureAddress(gl_hOriginalDll, "D3D12CreateDevice");
 	HRESULT res = fn(pAdapter, MinimumFeatureLevel, riid, ppDevice);
@@ -605,105 +721,106 @@ HRESULT D3D12CreateDevice(IUnknown* pAdapter, D3D_FEATURE_LEVEL MinimumFeatureLe
 } // 101
 
 HRESULT WINAPI D3D12GetDebugInterface(const IID* const riid, void** ppvDebug) {
+	LogInfo("D3D12GetDebugInterface\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const IID* const riid, void** ppvDebug);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12GetDebugInterface");
 	return fn(riid, ppvDebug);
 } // 102
 
 void _fastcall SetAppCompatStringPointer(unsigned __int64 a1, const char* a2) {
+	LogInfo("SetAppCompatStringPointer\n");
 	typedef void(_fastcall* D3D12_Type)(unsigned __int64 a1, const char* a2);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "SetAppCompatStringPointer");
 	return fn(a1, a2);
 } // 103
 
 HRESULT WINAPI D3D12CoreCreateLayeredDevice(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj) {
+	LogInfo("D3D12CoreCreateLayeredDevice\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1, const void *u2, REFIID riid, void **ppvObj);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreCreateLayeredDevice");
 	return fn(u0, u1, u2, riid, ppvObj);
 } // 104
 
 HRESULT WINAPI D3D12CoreGetLayeredDeviceSize(const void *u0, DWORD u1) {
+	LogInfo("D3D12CoreCreateLayeredDeviceSize\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreGetLayeredDeviceSize");
 	return fn(u0, u1);
 } // 105
 
 HRESULT WINAPI D3D12CoreRegisterLayers(const void *u0, DWORD u1) {
+	LogInfo("D3D12CoreRegisterLayers\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(const void *u0, DWORD u1);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CoreRegisterLayers");
 	return fn(u0, u1);
 } // 106
 
 HRESULT WINAPI D3D12CreateRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
+	LogInfo("D3D12CreateRootSignatureDeserializer\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T  SrcDataSizeInBytes, REFIID  pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CreateRootSignatureDeserializer");
 	return fn(pSrcData, SrcDataSizeInBytes,pRootSignatureDeserializerInterface,ppRootSignatureDeserializer);
 } // 107
 
 HRESULT WINAPI D3D12CreateVersionedRootSignatureDeserializer(LPCVOID pSrcData, SIZE_T SrcDataSizeInBytes, REFIID pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer) {
+	LogInfo("D3D12CreateVersionedRootSignatureDeserializer\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(LPCVOID pSrcData, SIZE_T SrcDataSizeInBytes, REFIID pRootSignatureDeserializerInterface, void** ppRootSignatureDeserializer);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12CreateVersionedRootSignatureDeserializer");
 	return fn(pSrcData,SrcDataSizeInBytes,pRootSignatureDeserializerInterface,ppRootSignatureDeserializer);
 } // 108
 
 HRESULT WINAPI D3D12EnableExperimentalFeatures(UINT NumFeatures, const IID* pIIDs, void* pConfigurationStructs,	UINT* pConfigurationStructSizes) {
+	LogInfo("D3D12EnableExperimentalFeatures\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(UINT NumFeatures, const IID* pIIDs,	void* pConfigurationStructs, UINT* pConfigurationStructSizes);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12EnableExperimentalFeatures");
 	return fn(NumFeatures,pIIDs,pConfigurationStructs,pConfigurationStructSizes);
 } // 110
 
 HRESULT WINAPI D3D12GetInterface(struct _GUID* a1, const struct _GUID* a2, void** a3) {
+	LogInfo("D3D12GetInterface\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(struct _GUID* a1, const struct _GUID* a2, void** a3);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12GetInterface");
 	return fn(a1, a2, a3);
 } // 111
 
 HRESULT WINAPI D3D12PIXEventsReplaceBlock(bool getEarliestTime) {
+	LogInfo("D3D12PIXEventsReplaceBlock\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(bool getEarliestTime);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXEventsReplaceBlock");
 	return fn(getEarliestTime);
 } // 112
 
 HRESULT WINAPI D3D12PIXGetThreadInfo() {
+	LogInfo("D3D12PIXGetThreadInfo\n");
 	typedef HRESULT(WINAPI* D3D12_Type)();
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXGetThreadInfo");
 	return fn();
 } // 113
 
 HRESULT WINAPI D3D12PIXNotifyWakeFromFenceSignal(HANDLE a, HANDLE b) {
+	LogInfo("D3D12PIXNotifyWakeFromFenceSignal\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE a, HANDLE b);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXNotifyWakeFromFenceSignal");
 	return fn(a, b);
 } // 114
 
 HRESULT WINAPI D3D12PIXReportCounter(HANDLE a, HANDLE b, HANDLE c) {
+	LogInfo("D3D12PIXReportCounter\n");
 	typedef HRESULT(WINAPI* D3D12_Type)(HANDLE a, HANDLE b, HANDLE c);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll,	"D3D12PIXReportCounter");
 	return fn(a, b, c);
 } // 115
 
-HRESULT WINAPI D3D12SerializeRootSignature(
-	const D3D12_ROOT_SIGNATURE_DESC* pRootSignature,
-	D3D_ROOT_SIGNATURE_VERSION Version,
-	ID3DBlob** ppBlob,
-	ID3DBlob** ppErrorBlob) {
-	typedef HRESULT(WINAPI* D3D12_Type)(
-		const D3D12_ROOT_SIGNATURE_DESC* pRootSignature,
-		D3D_ROOT_SIGNATURE_VERSION Version,
-		ID3DBlob** ppBlob,
-		ID3DBlob** ppErrorBlob);
+HRESULT WINAPI D3D12SerializeRootSignature(const D3D12_ROOT_SIGNATURE_DESC* pRootSignature, D3D_ROOT_SIGNATURE_VERSION Version, ID3DBlob** ppBlob, ID3DBlob** ppErrorBlob) {
+	LogInfo("D3D12SerializeRootSignature\n");
+	typedef HRESULT(WINAPI* D3D12_Type)(const D3D12_ROOT_SIGNATURE_DESC* pRootSignature, D3D_ROOT_SIGNATURE_VERSION Version, ID3DBlob** ppBlob, ID3DBlob** ppErrorBlob);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12SerializeRootSignature");
 	return fn(pRootSignature,Version,ppBlob,ppErrorBlob);
 } // 116
 
-HRESULT WINAPI D3D12SerializeVersionedRootSignature(
-	const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
-	ID3DBlob** ppBlob,
-	ID3DBlob** ppErrorBlob) {
-	typedef HRESULT(WINAPI* D3D12_Type)(
-		const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature,
-		ID3DBlob** ppBlob,
-		ID3DBlob** ppErrorBlob);
+HRESULT WINAPI D3D12SerializeVersionedRootSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature, ID3DBlob** ppBlob, ID3DBlob** ppErrorBlob) {
+	LogInfo("D3D12SerializeVersionedRootSignature\n");
+	typedef HRESULT(WINAPI* D3D12_Type)(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignature, ID3DBlob** ppBlob, ID3DBlob** ppErrorBlob);
 	D3D12_Type fn = (D3D12_Type)GetProcAddress(gl_hOriginalDll, "D3D12SerializeVersionedRootSignature");
 	return fn(pRootSignature, ppBlob, ppErrorBlob);
 } // 117
