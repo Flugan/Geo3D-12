@@ -1,0 +1,9 @@
+;DXIL mostly
+;c:\Flugan\Alan Wake Remastered
+;c:\Flugan\Cyberpunk 2077
+;c:\Flugan\Deathloop
+;c:\Flugan\Horizon Zero Dawn
+;c:\Flugan\Marvel's Guardians of the Galaxy
+;c:\Flugan\Metro Exodus Enhanced Edition
+;c:\Flugan\Red Dead Redemption 2
+;c:\Flugan\Resident Evil Village
