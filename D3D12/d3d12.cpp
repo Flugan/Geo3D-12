@@ -173,7 +173,7 @@ void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0
 	char path[MAX_PATH];
 	path[0] = 0;
 	if (length >= 0) {
-		if (gl_dumpBin) {
+		if (gl_dumpBin && false) {
 			UINT64 crc = fnv_64_buf(pData, length);
 			if (crc2 != 0)
 				crc = crc2;
