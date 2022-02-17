@@ -98,10 +98,10 @@ string changeASM(vector<byte> ASM, bool left) {
 				shader +=
 					"eq r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(1.0)\n" +
 					"if_z r" + to_string(temp - 2) + ".x\n"
-					"add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
-					"mad r" + to_string(temp - 2) + ".x, r" + to_string(temp - 2) + ".x, " + changeSep + ", r" + to_string(temp - 1) + ".x\n" +
-					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n" +
-					"ret\n" +
+					"  add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
+					"  mad r" + to_string(temp - 2) + ".x, r" + to_string(temp - 2) + ".x, " + changeSep + ", r" + to_string(temp - 1) + ".x\n" +
+					"  mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n" +
+					"  ret\n" +
 					"endif\n";
 			}
 			if (oReg.size() == 0) {
@@ -151,24 +151,23 @@ int fileExists(TCHAR* file) {
 }
 
 void dump(char* type, const void* pData, SIZE_T length) {
-	if (!gl_dump)
+	if (!gl_dump || length == 0)
 		return;
 	FILE* f;
 	char path[MAX_PATH];
 	path[0] = 0;
-	if (length > 0) {
-		UINT64 crc = fnv_64_buf(pData, length);
-		CreateDirectory("ShaderCache", NULL);
-		sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.bin", crc, type);
-		if (!fileExists(path)) {
-			fopen_s(&f, path, "wb");
-			if (f != 0) {
-				fwrite(pData, 1, length, f);
-				fclose(f);
-			}
-		}
-	}
+	UINT64 crc = fnv_64_buf(pData, length);
+	CreateDirectory("ShaderCache", NULL);
+	sprintf_s(path, MAX_PATH, "ShaderCache\\%016llX-%s.bin", crc, type);
+	if (fileExists(path))
+		return;
+	fopen_s(&f, path, "wb");
+	if (f == 0)
+		return;
+	fwrite(pData, 1, length, f);
+	fclose(f);
 }
+
 
 HRESULT STDMETHODCALLTYPE D3D11_CreateVertexShader(ID3D11Device *This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11VertexShader **ppVertexShader) {
 	HRESULT hr;
@@ -217,17 +216,14 @@ HRESULT STDMETHODCALLTYPE D3D11_CreateGeometryShader(ID3D11Device *This, const v
 	dump("gs", pShaderBytecode, BytecodeLength);
 	return sCreateGeometryShader_Hook.fn(This, pShaderBytecode, BytecodeLength, pClassLinkage, ppGeometryShader);
 }
-
 HRESULT STDMETHODCALLTYPE D3D11_CreateHullShader(ID3D11Device * This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11HullShader **ppHullShader) {
 	dump("hs", pShaderBytecode, BytecodeLength);
 	return sCreateHullShader_Hook.fn(This, pShaderBytecode, BytecodeLength, pClassLinkage, ppHullShader);
 }
-
 HRESULT STDMETHODCALLTYPE D3D11_CreateDomainShader(ID3D11Device * This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11DomainShader **ppDomainShader) {
 	dump("ds", pShaderBytecode, BytecodeLength);
 	return sCreateDomainShader_Hook.fn(This, pShaderBytecode, BytecodeLength, pClassLinkage, ppDomainShader);
 }
-
 HRESULT STDMETHODCALLTYPE D3D11_CreateComputeShader(ID3D11Device * This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11ComputeShader **ppComputeShader) {
 	dump("cs", pShaderBytecode, BytecodeLength);
 	return sCreateComputeShader_Hook.fn(This, pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader);
