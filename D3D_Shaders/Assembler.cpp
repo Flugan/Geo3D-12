@@ -10,8 +10,7 @@ static map<string, vector<DWORD>> codeBin;
 string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
-	vector<DWORD> hex = { 0x0000ffff, 0x7f800000, 0x7fffffff, 0xffaa5500, 0xffc10000,
-		0x7fc10000, 0xfffeffff, 0xffe699f1 };
+	vector<DWORD> hex = { 0x0000ffff, 0x7fffffff, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1 };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
@@ -20,7 +19,13 @@ string convertF(DWORD original, const char* lit) {
 		}
 	}
 	float fOriginal = reinterpret_cast<float&>(original);
-	if (bHex) {
+	if (original == 0xFF800000) {
+		sprintf_s(buf, 80, "%s", "-1.#INF00");
+	}
+	else if (original == 0x7F800000) {
+		sprintf_s(buf, 80, "%s", "1.#INF00");
+	}
+	else if (bHex) {
 		sprintf_s(buf, 80, "0x%08x", original);
 	}
 	else if (original < 0xffff) {
@@ -29,29 +34,61 @@ string convertF(DWORD original, const char* lit) {
 	else if (original > 0xffff0000) {
 		sprintf_s(buf, 80, "%d", original);
 	}
-	else {	
-		sprintf_s(buf2, 80, "%.10E", fOriginal);
-		int len = strlen(buf2);
-		if (buf2[len - 3] == '-') {
-			int exp = atoi(buf2 + len - 2);
-			switch (exp) {
-			case 1:
-				sprintf_s(buf, 80, "%.9f", fOriginal);
-				break;
-			case 2:
-				sprintf_s(buf, 80, "%.10f", fOriginal);
-				break;
-			case 3:
-				sprintf_s(buf, 80, "%.11f", fOriginal);
-				break;
-			default:
-				sprintf_s(buf, 80, "%.9E", fOriginal);
-				break;
-			}
-		}
-		else {
-			sprintf_s(buf, 80, "%.7f", fOriginal);
-		}
+	else {
+			sprintf_s(buf, 80, "%.1f", fOriginal);
+		string s1(buf);
+		if (original == strToDWORD(s1))
+			return s1;
+
+		sprintf_s(buf, 80, "%.2f", fOriginal);
+		string s2(buf);
+		if (original == strToDWORD(s2))
+			return s2;
+
+		sprintf_s(buf, 80, "%.3f", fOriginal);
+		string s3(buf);
+		if (original == strToDWORD(s3))
+			return s3;
+
+		sprintf_s(buf, 80, "%.4f", fOriginal);
+		string s4(buf);
+		if (original == strToDWORD(s4))
+			return s4;
+
+		sprintf_s(buf, 80, "%.5f", fOriginal);
+		string s5(buf);
+		if (original == strToDWORD(s5))
+			return s5;
+
+		sprintf_s(buf, 80, "%.6f", fOriginal);
+		string s6(buf);
+		if (original == strToDWORD(s6))
+			return s6;
+
+		sprintf_s(buf, 80, "%.7f", fOriginal);
+		string s7(buf);
+		if (original == strToDWORD(s7))
+			return s7;
+
+		sprintf_s(buf, 80, "%.8f", fOriginal);
+		string s8(buf);
+		if (original == strToDWORD(s8))
+			return s8;
+
+		sprintf_s(buf, 80, "%.9f", fOriginal);
+		string s9(buf);
+		if (original == strToDWORD(s9))
+			return s9;
+
+		sprintf_s(buf, 80, "%.10f", fOriginal);
+		string s10(buf);
+		if (original == strToDWORD(s10))
+			return s10;
+
+		sprintf_s(buf, 80, "%.9E", fOriginal);
+		string s9E(buf);
+		if (original == strToDWORD(s9E))
+			return s9E;
 	}
 	string sLiteral(buf);
 	
@@ -118,6 +155,7 @@ string assembleAndCompare(string s, vector<DWORD> v) {
 		s.erase(s.begin());
 		numSpaces++;
 	}
+	int lastStart = 0;
 	int lastLiteral = 0;
 	int lastEnd = 0;
 	vector<DWORD> v2 = assembleIns(s);
@@ -136,120 +174,87 @@ string assembleAndCompare(string s, vector<DWORD> v) {
 					for (int j = 0; j < loopSize; j++) {
 						i++;
 						lastLiteral = sNew.find("{ ", lastLiteral + 1);
-						lastEnd = sNew.find(",", lastLiteral + 1);
-						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						//if (v[i] != v2[i]) {
-							sLiteral = convertF(v[i], s3.c_str());
-							sBegin = sNew.substr(0, lastLiteral + 2);
-							lastLiteral = sBegin.size();
-							sBegin.append(sLiteral);
-							sBegin.append(sNew.substr(lastEnd));
-							sNew = sBegin;
-						//}
+						lastEnd = sNew.find(",", lastLiteral);
+						s3 = sNew.substr(lastLiteral + 2, lastEnd - lastLiteral - 2);
+						sLiteral = convertF(v[i], s3.c_str());
+						sBegin = sNew.substr(0, lastLiteral + 1);
+						sBegin.append(" " + sLiteral + ",");
+
 						i++;
-						lastLiteral = sNew.find(",", lastLiteral + 1);
-						lastEnd = sNew.find(",", lastLiteral + 1);
-						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						//if (v[i] != v2[i]) {
-							sLiteral = convertF(v[i], s3.c_str());
-							sBegin = sNew.substr(0, lastLiteral + 2);
-							lastLiteral = sBegin.size();
-							sBegin.append(sLiteral);
-							sBegin.append(sNew.substr(lastEnd));
-							sNew = sBegin;
-						//}
+						lastLiteral = lastEnd;
+						lastEnd = sNew.find(",", lastEnd + 1);
+						s3 = sNew.substr(lastLiteral + 1, lastEnd - lastLiteral - 1);
+						sLiteral = convertF(v[i], s3.c_str());
+						sBegin.append(" " + sLiteral + ",");
+
 						i++;
-						lastLiteral = sNew.find(",", lastLiteral + 1);
-						lastEnd = sNew.find(",", lastLiteral + 1);
-						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						//if (v[i] != v2[i]) {
-							sLiteral = convertF(v[i], s3.c_str());
-							sBegin = sNew.substr(0, lastLiteral + 2);
-							lastLiteral = sBegin.size();
-							sBegin.append(sLiteral);
-							sBegin.append(sNew.substr(lastEnd));
-							sNew = sBegin;
-						//}
+						lastLiteral = lastEnd;
+						lastEnd = sNew.find(",", lastEnd + 1);
+						s3 = sNew.substr(lastLiteral + 1, lastEnd - lastLiteral - 1);
+						sLiteral = convertF(v[i], s3.c_str());
+						sBegin.append(" " + sLiteral + ",");
+
 						i++;
 						lastLiteral = sNew.find(",", lastLiteral + 1);
 						lastEnd = sNew.find("}", lastLiteral + 1);
-						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						//if (v[i] != v2[i]) {
-							sLiteral = convertF(v[i], s3.c_str());
-							sBegin = sNew.substr(0, lastLiteral + 2);
-							lastLiteral = sBegin.size();
-							sBegin.append(sLiteral);
-							sBegin.append(sNew.substr(lastEnd));
-							sNew = sBegin;
-						//}
+						s3 = sNew.substr(lastLiteral + 2, lastEnd - lastLiteral - 2);
+						sLiteral = convertF(v[i], s3.c_str());
+						sBegin.append(" " + sLiteral);
+						sBegin.append(sNew.substr(lastEnd));
+						sNew = sBegin;
 					}
 					i++;
-				} else if (v[i] == 0x4001) {
+				}
+				else if (v2[i] == 0x12404001) {
 					i++;
-					lastLiteral = sNew.find("l(", lastLiteral + 1);
+					lastStart = sNew.find("l(", lastStart + 1);
+					lastLiteral = lastStart;
 					lastEnd = sNew.find(")", lastLiteral);
-					s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-					//if (v[i] != v2[i]) {
-						sLiteral = convertF(v[i], s3.c_str());
-						sBegin = sNew.substr(0, lastLiteral + 2);
-						lastLiteral = sBegin.size();
-						sBegin.append(sLiteral);
-						sBegin.append(sNew.substr(lastEnd));
-						sNew = sBegin;
-					//}
-				} else if (v[i] == 0x4002) {
+					s3 = sNew.substr(lastLiteral + 2, lastEnd - lastLiteral - 2);
+					sLiteral = convertF(v[i], s3.c_str());
+					sBegin = sNew.substr(0, lastLiteral + 2);
+					sBegin.append(sLiteral);
+					sBegin.append(sNew.substr(lastEnd));
+					sNew = sBegin;
+				}
+				else if (v2[i] == 0x12404002) {
 					i++;
-					lastLiteral = sNew.find("l(", lastLiteral);
+					lastStart = sNew.find("l(", lastStart + 1);
+					lastLiteral = lastStart;
 					lastEnd = sNew.find(",", lastLiteral);
-					s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-					//if (v[i] != v2[i]) {
-						sLiteral = convertF(v[i], s3.c_str());
-						sBegin = sNew.substr(0, lastLiteral + 2);
-						lastLiteral = sBegin.size();
-						sBegin.append(sLiteral);
-						sBegin.append(sNew.substr(lastEnd));
-						sNew = sBegin;
-					//}
+					s3 = sNew.substr(lastLiteral + 2, lastEnd - lastLiteral - 2);
+					sLiteral = convertF(v[i], s3.c_str());
+					sBegin = sNew.substr(0, lastLiteral + 2);
+					sBegin.append(sLiteral + ", ");
+
 					i++;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(",", lastLiteral + 1);
-					s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-					//if (v[i] != v2[i]) {
-						sLiteral = convertF(v[i], s3.c_str());
-						sBegin = sNew.substr(0, lastLiteral + 1);
-						lastLiteral = sBegin.size();
-						sBegin.append(sLiteral);
-						sBegin.append(sNew.substr(lastEnd));
-						sNew = sBegin;
-					//}
+					lastLiteral = lastEnd;
+					lastEnd = sNew.find(",", lastEnd + 1);
+					s3 = sNew.substr(lastLiteral + 1, lastEnd - lastLiteral - 1);
+					sLiteral = convertF(v[i], s3.c_str());
+					sBegin.append(sLiteral + ", ");
+
 					i++;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(",", lastLiteral + 1);
-					s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-					//if (v[i] != v2[i]) {
-						sLiteral = convertF(v[i], s3.c_str());
-						sBegin = sNew.substr(0, lastLiteral + 1);
-						lastLiteral = sBegin.size();
-						sBegin.append(sLiteral);
-						sBegin.append(sNew.substr(lastEnd));
-						sNew = sBegin;
-					//}
+					lastLiteral = lastEnd;
+					lastEnd = sNew.find(",", lastEnd + 1);
+					s3 = sNew.substr(lastLiteral + 1, lastEnd - lastLiteral - 1);
+					sLiteral = convertF(v[i], s3.c_str());
+					sBegin.append(sLiteral + ", ");
+
 					i++;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(")", lastLiteral + 1);
-					s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-					//if (v[i] != v2[i]) {
-						sLiteral = convertF(v[i], s3.c_str());
-						sBegin = sNew.substr(0, lastLiteral + 1);
-						sBegin.append(sLiteral);
-						lastLiteral = sBegin.size();
-						sBegin.append(sNew.substr(lastEnd));
-						sNew = sBegin;
-					//}
-				} else if (v[i] != v2[i])
+					lastLiteral = lastEnd;
+					lastEnd = sNew.find(")", lastEnd + 1);
+					s3 = sNew.substr(lastLiteral + 1, lastEnd - lastLiteral - 1);
+					sLiteral = convertF(v[i], s3.c_str());
+					sBegin.append(sLiteral);
+					sBegin.append(sNew.substr(lastEnd));
+					sNew = sBegin;
+				}
+				else if (v[i] != v2[i])
 					valid = false;
 			}
-		} else {
+		}
+		else {
 			valid = false;
 		}
 		if (valid) {
@@ -285,6 +290,14 @@ vector<byte> disassembler(vector<byte> buffer) {
 	if (hr == S_OK) {
 		asmBuffer = (char*)pDissassembly->GetBufferPointer();
 		asmSize = pDissassembly->GetBufferSize();
+		/*
+		vector<byte> ret;
+		byte* pASM = (byte*)pDissassembly->GetBufferPointer();
+		for (size_t i = 0; i < pDissassembly->GetBufferSize(); i++) {
+			ret.push_back(pASM[i]);
+		}
+		return ret;
+		*/
 	}
 	else {
 		ComPtr<IDxcCompiler3> pCompiler;
@@ -303,7 +316,7 @@ vector<byte> disassembler(vector<byte> buffer) {
 			for (size_t i = 0; i < pBlob->GetBufferSize(); i++) {
 				ret.push_back(pASM[i]);
 			}
-		}		
+		}
 		return ret;
 	}
 
@@ -472,6 +485,12 @@ void handleSwizzle(string s, token_operand* tOp, bool special = false) {
 }
 
 DWORD strToDWORD(string s) {
+	if (s == "-1.#INF00") {
+		return 0xFF800000;
+	}
+	if (s == "1.#INF00") {
+		return 0x7F800000;
+	}
 	if (s == "-nan") {
 		return 0xffaa5502;
 	}
@@ -515,6 +534,28 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 		s.erase(s.end() - 1);
 		tOp->extended = 1;
 		ext |= 0x81;
+	}
+	size_t pos = s.find(" {min16f}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x4001;
+	}
+	pos = s.find(" {min16f as def32}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x4001;
+	}
+	pos = s.find(" {def32 as min16f}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+	}
+	pos = s.find(" { nonuniform }");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x20001;
 	}
 	if (tOp->extended) {
 		v.push_back(ext);
@@ -774,6 +815,9 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 			}
 		}
 		else if (s[0] == '(') {
+			tOp->index0_repr = 1;
+			tOp->index1_repr = 1;
+			tOp->index2_repr = 1;
 			tOp->num_indices = 0;
 			tOp->mode = 0;
 			tOp->comps_enum = 1;
@@ -879,13 +923,13 @@ DWORD parseAoffimmi(DWORD start, string o) {
 	return aoffimmi;
 }
 
-unordered_map<string, vector<DWORD>> shaderLUT = {};
+map<string, vector<DWORD>> shaderLUT = {};
 
-unordered_map<string, vector<DWORD>> hackMap = {
+map<string, vector<DWORD>> hackMap = {
 	{ "dcl_output oMask", { 0x02000065, 0x0000F000 } },
 };
 
-unordered_map<string, vector<int>> ldMap = {
+map<string, vector<int>> ldMap = {
 	{ "gather4_c_aoffimmi_indexable", { 5, 126, 3 } },
 	{ "gather4_c_indexable", { 5, 126, 2 } },
 	{ "gather4_aoffimmi", { 4, 109, 1 } },
@@ -1013,27 +1057,16 @@ map<string, vector<int>> insMap = {
 	{ "if_z", { 1, 31, 0 } },
 	{ "if_nz", { 1, 31, 0 } },
 	{ "switch", { 1, 76, 0 } },
-	{ "break", { 0, 2 } },
-	{ "default", { 0, 10 } },
-	{ "else", { 0, 18 } },
-	{ "endif", { 0, 21 } },
-	{ "endloop", { 0, 22 } },
-	{ "endswitch", { 0, 23 } },
-	{ "loop", { 0, 48 } },
-	{ "ret", { 0, 62 } },
-	{ "nop",{ 0, 58 } },
-	{ "retc_nz", { 1, 63 } },
-	{ "retc_z", { 1, 63 } },
-	{ "emit", { 0, 19 } },
-	{ "continue", { 0, 7 } },
 	{ "continuec_z", { 1, 8 } },
 	{ "continuec_nz", { 1, 8 } },
-	{ "cut", { 0, 9 } },
+	{ "retc_nz", { 1, 63 } },
+	{ "retc_z", { 1, 63 } },	
 	{ "imm_atomic_and", { 4, 181 } },
 	{ "imm_atomic_exch", { 4, 184 } },
 	{ "imm_atomic_cmp_exch", { 5, 185 } },
 	{ "imm_atomic_iadd", { 4, 180 } },
 	{ "imm_atomic_consume", { 2, 179 } },
+	{ "imm_atomic_umax", { 4, 188 } },
 	{ "atomic_iadd", { 3, 173, 0 } },
 	{ "ld_raw", { 3, 165 } },
 	{ "store_raw", { 3, 166 } },
@@ -1042,6 +1075,8 @@ map<string, vector<int>> insMap = {
 	{ "atomic_umax", { 3, 176, 0 } },
 	{ "atomic_umin", { 3, 177, 0 } },
 	{ "atomic_or", { 3, 170, 0 } },
+	{ "atomic_and", { 3, 169, 0 } },
+	{ "atomic_cmp_store", { 4, 172 } },
 	{ "dcl_tgsm_raw", { 2, 159 } },
 	{ "dcl_tgsm_structured", { 3, 160 } },
 	{ "dcl_thread_group", { 3, 155 } },
@@ -1051,7 +1086,48 @@ map<string, vector<int>> insMap = {
 	{ "lod", { 4, 108 } },
 	{ "samplepos", { 3, 110 } },
 	{ "bufinfo", { 2, 121 } },
+	{ "store_uav_typed", { 3, 164 } },
+	{ "dcl_output", { 1, 101 } },
+	{ "dcl_input", { 1, 95 } },
 };
+
+map<string, int> shaderMap = {
+	{ "ps_", 0x00000 },
+	{ "vs_", 0x10000 },
+	{ "gs_", 0x20000 },
+	{ "hs_", 0x30000 },
+	{ "ds_", 0x40000 },
+	{ "cs_", 0x50000 },
+};
+
+map<string, vector<int>> miniInsMap = {
+	{ "sync_uglobal_g_t", { 190, 11 } },
+	{ "sync_uglobal_t", { 190, 9 } },
+	{ "sync_uglobal", { 190, 8 } },
+	{ "sync_g_t", { 190, 3 } },
+	{ "sync_g", { 190, 2 } },
+	{ "sync_t", { 190, 1 } },
+	{ "hs_decls", { 113 } },
+	{ "hs_control_point_phase", { 114 } },
+	{ "hs_fork_phase", { 115 } },
+	{ "hs_join_phase", { 116 } },
+	{ "break", { 2 } },
+	{ "default", { 10 } },
+	{ "else", { 18 } },
+	{ "endif", { 21 } },
+	{ "endloop", { 22 } },
+	{ "endswitch", { 23 } },
+	{ "loop", { 48 } },
+	{ "ret", { 62 } },
+	{ "nop",{ 58 } },
+	{ "cut", { 9 } },
+	{ "emit", { 19 } },
+	{ "continue", { 7 } },
+};
+
+
+
+
 
 DWORD toLD(string s) {
 	if (s == "(float,float,float,float)")
@@ -1064,6 +1140,20 @@ DWORD toLD(string s) {
 		return 0x2222;
 	if (s == "(unorm,unorm,unorm,unorm)")
 		return 0x1111;
+	return 0;
+}
+
+DWORD ldFlag(string s) {
+	if (s == "refactoringAllowed")
+		return 1;
+	if (s == "forceEarlyDepthStencil")
+		return 4;
+	if (s == "enableRawAndStructuredBuffers")
+		return 8;
+	if (s == "enableMinimumPrecision")
+		return 32;
+	if (s == "allResourcesBound")
+		return 256;
 	return 0;
 }
 
@@ -1119,96 +1209,19 @@ vector<DWORD> assembleIns(string s) {
 	bool bSat = o.find("_sat") < o.size();
 	if (bSat) o = o.substr(0, o.find("_sat"));
 
-	if (o == "sync_uglobal_g_t") {
-		ins->opcode = 190;
-		ins->_11_23 = 11;
+	
+	if (miniInsMap.find(o) != miniInsMap.end()) {
+		vector<int> vIns = miniInsMap[o];
+		ins->opcode = vIns[0];
+		ins->_11_23 = vIns.size() > 1 ? vIns[1] : 0;
 		ins->length = 1;
 		v.push_back(op);
-	}
-	else if (o == "sync_uglobal_t") {
-		ins->opcode = 190;
-		ins->_11_23 = 9;
-		ins->length = 1;
-		v.push_back(op);
-	}
-	else if (o == "sync_g") {
-		ins->opcode = 190;
-		ins->_11_23 = 2;
-		ins->length = 1;
-		v.push_back(op);
-	}
-	else if (o == "hs_decls") {
-		ins->opcode = 113;
-		ins->length = 1;
-		v.push_back(op);
-	} else if (o == "hs_fork_phase") {
-		ins->opcode = 115;
-		ins->length = 1;
-		v.push_back(op);
-	} else if (o == "hs_join_phase") {
-		ins->opcode = 116;
-		ins->length = 1;
-		v.push_back(op);
-	} else if (o == "hs_control_point_phase") {
-		ins->opcode = 114;
-		ins->length = 1;
-		v.push_back(op);
-	} else if (o.substr(0, 3) == "ps_") {
-		op = 0x00000;
+	} else if (shaderMap.find(o.substr(0, 3)) != shaderMap.end()) {
+		int type = shaderMap[o.substr(0, 3)];
+		op = type;
 		op |= 16 * atoi(o.substr(3, 1).c_str());
 		op |= atoi(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "vs_") {
-		op = 0x10000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
-		v.push_back(op);
-	} else if (o.substr(0, 3) == "gs_") {
-		op = 0x20000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
-		v.push_back(op);
-	} else if (o.substr(0, 3) == "hs_") {
-		op = 0x30000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
-		v.push_back(op);
-	} else if (o.substr(0, 3) == "ds_") {
-		op = 0x40000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
-		v.push_back(op);
-	} else if (o.substr(0, 3) == "cs_") {
-		op = 0x50000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
-		v.push_back(op);
-	} else if (w[0] == "sync_g_t") {
-		ins->opcode = 190;
-		ins->_11_23 = 3;
-		ins->length = 1;
-		v.push_back(op);
-	} else if (w[0] == "sync_uglobal") {
-		ins->opcode = 190;
-		ins->_11_23 = 8;
-		ins->length = 1;
-		v.push_back(op);
-	} else if (w[0] == "store_uav_typed") {
-		ins->opcode = 134;
-		if (w[1][0] == 'u' || w[1][0] == 'U') {
-			ins->opcode = 164;
-		}
-		int numOps = 3;
-		vector<vector<DWORD>> Os;
-		int numSpecial = 1;
-		for (int i = 0; i < numOps; i++)
-			Os.push_back(assembleOp(w[i + 1], i < numSpecial));
-		ins->length = 1;
-		for (int i = 0; i < numOps; i++)
-			ins->length += Os[i].size();
-		v.push_back(op);
-		for (int i = 0; i < numOps; i++)
-			v.insert(v.end(), Os[i].begin(), Os[i].end());
 	} else if (insMap.find(o) != insMap.end()) {
 		vector<int> vIns = insMap[o];
 		int numOps = vIns[0];
@@ -1224,22 +1237,51 @@ vector<DWORD> assembleIns(string s) {
 			int offsetSpace = i + 1 + offset;
 			string sOp = w[offsetSpace];
 
-			vector<DWORD> tempOps = assembleOp(sOp, i < numSpecial);
-
-			bool nonUniform = false;
-			if (i + 1 < numOps) {
-				if (w[offsetSpace + 1] == "{") {
-					offset += 3;
-					if (w[offsetSpace + 2] == "nonuniform") {
-						nonUniform = true;
-					}
+			if (offsetSpace + 1 < w.size()) {
+				if (w[offsetSpace + 1] == "{min16f}") {
+					offset += 1;
+					sOp += " {min16f}";
 				}
-				if (nonUniform) {
-					// set ext flag
-					tempOps[0] |= 0x80000000;
-					tempOps.insert(tempOps.begin() + 1, 0x00020001);
+				if (w[offsetSpace + 1] == "{min16f}|") {
+					offset += 1;
+					sOp += " {min16f}|";
 				}
 			}
+			if (offsetSpace + 3 < w.size()) {
+				if (w[offsetSpace + 1] == "{" &&
+					w[offsetSpace + 2] == "nonuniform" &&
+					w[offsetSpace + 3] == "}") {
+					offset += 3;
+					sOp += " { nonuniform }";
+				}
+				if (w[offsetSpace + 1] == "{def32" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16f}") {
+					offset += 3;
+					sOp += " {def32 as min16f}";
+				}
+				if (w[offsetSpace + 1] == "{def32" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16f}|") {
+					offset += 3;
+					sOp += " {def32 as min16f}|";
+				}
+				if (w[offsetSpace + 1] == "{min16f" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "def32}") {
+					offset += 3;
+					sOp += " {min16f as def32}";
+				}
+				if (w[offsetSpace + 1] == "{min16f" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "def32}|") {
+					offset += 3;
+					sOp += " {min16f as def32}|";
+				}
+			}
+
+			vector<DWORD> tempOps = assembleOp(sOp, i < numSpecial);
+
 			Os.push_back(tempOps);
 		}
 		if (bSat)
@@ -1325,7 +1367,7 @@ vector<DWORD> assembleIns(string s) {
 		}
 		for (int i = 0; i < numOps; i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
-	} 	else if (o == "dcl_uav_raw") {
+	} else if (o == "dcl_uav_raw") {
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 157;
 		v.insert(v.end(), os.begin(), os.end());
@@ -1342,20 +1384,7 @@ vector<DWORD> assembleIns(string s) {
 		ins->length = 1 + v.size();
 		ins->_11_23 = 32;
 		v.insert(v.begin(), op);
-	} else if (o == "dcl_input") {
-		ins->opcode = 95;
-		vector<DWORD> os = assembleOp(w[1], true);
-		v.insert(v.end(), os.begin(), os.end());
-		ins->length = 1 + v.size();
-		v.insert(v.begin(), op);
-	} else if (o == "dcl_output") {
-		vector<DWORD> os = assembleOp(w[1], true);
-		ins->opcode = 101;
-		v.insert(v.end(), os.begin(), os.end());
-		ins->length = 1 + v.size();
-		v.insert(v.begin(), op);
-	}
-	else if (o == "dcl_uav_structured") {
+	} else if (o == "dcl_uav_structured") {
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 158;
 		v.insert(v.end(), os.begin(), os.end());
@@ -1366,8 +1395,19 @@ vector<DWORD> assembleIns(string s) {
 		}
 		ins->length = 1 + v.size();
 		v.insert(v.begin(), op);
-	}
-	else if (o == "dcl_resource_raw") {
+	} else if (o == "dcl_uav_structured_rov") {
+		vector<DWORD> os = assembleOp(w[1], true);
+		ins->opcode = 158;
+		ins->_11_23 = 64;
+		v.insert(v.end(), os.begin(), os.end());
+		v.push_back(atoi(w[2].c_str()));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
+		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
+	} else if (o == "dcl_resource_raw") {
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 161;
 		v.insert(v.end(), os.begin(), os.end());
@@ -1505,6 +1545,30 @@ vector<DWORD> assembleIns(string s) {
 		}
 		ins->length = 1 + v.size();
 		v.insert(v.begin(), op);
+	} else if (o == "dcl_uav_typed_texture2d_rov") {
+		vector<DWORD> os = assembleOp(w[2], true);
+		ins->opcode = 156;
+		ins->_11_23 = 67;
+		v.insert(v.end(), os.begin(), os.end());
+		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
+		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
+	} else if (o == "dcl_uav_typed_texture1darray") {
+		vector<DWORD> os = assembleOp(w[2], true);
+		ins->opcode = 156;
+		ins->_11_23 = 7;
+		v.insert(v.end(), os.begin(), os.end());
+		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
+		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
 	} else if (o == "dcl_uav_typed_texture2darray") {
 		vector<DWORD> os = assembleOp(w[2], true);
 		ins->opcode = 156;
@@ -1600,39 +1664,16 @@ vector<DWORD> assembleIns(string s) {
 		ins->opcode = 106;
 		ins->length = 1;
 		ins->_11_23 = 0;
-		if (w.size() > 1) {
-			string s = w[1];
-			if (s == "refactoringAllowed")
-				ins->_11_23 |= 1;
-			if (s == "forceEarlyDepthStencil")
-				ins->_11_23 |= 4;
-			if (s == "enableRawAndStructuredBuffers")
-				ins->_11_23 |= 8;
-			if (s == "allResourcesBound")
-				ins->_11_23 |= 256;
-		}
-		if (w.size() > 3) {
-			string s = w[3];
-			if (s == "refactoringAllowed")
-				ins->_11_23 |= 1;
-			if (s == "forceEarlyDepthStencil")
-				ins->_11_23 |= 4;
-			if (s == "enableRawAndStructuredBuffers")
-				ins->_11_23 |= 8;
-			if (s == "allResourcesBound")
-				ins->_11_23 |= 256;
-		}
-		if (w.size() > 5) {
-			string s = w[5];
-			if (s == "refactoringAllowed")
-				ins->_11_23 |= 1;
-			if (s == "forceEarlyDepthStencil")
-				ins->_11_23 |= 4;
-			if (s == "enableRawAndStructuredBuffers")
-				ins->_11_23 |= 8;
-			if (s == "allResourcesBound")
-				ins->_11_23 |= 256;
-		}
+		if (w.size() > 1)
+			ins->_11_23 |= ldFlag(w[1]);
+		if (w.size() > 3)
+			ins->_11_23 |= ldFlag(w[3]);
+		if (w.size() > 5)
+			ins->_11_23 |= ldFlag(w[5]);
+		if (w.size() > 7)
+			ins->_11_23 |= ldFlag(w[7]);
+		if (w.size() > 9)
+			ins->_11_23 |= ldFlag(w[9]);
 		v.push_back(op);
 	} else if (o == "dcl_constantbuffer") {
 		vector<DWORD> os = assembleOp(w[1], true);
@@ -1720,25 +1761,28 @@ vector<DWORD> assembleIns(string s) {
 	} else if (o == "dcl_input_ps") {
 		vector<DWORD> os;
 		ins->opcode = 98;
+		int wOffset = 3;
 		if (w[1] == "linear") {
 			if (w[2] == "noperspective") {
 				ins->_11_23 = 4;
-				os = assembleOp(w[3], true);
 			} else if (w[2] == "centroid") {
 				ins->_11_23 = 3;
-				os = assembleOp(w[3], true);
 			} else if (w[2] == "sample") {
 				ins->_11_23 = 6;
-				os = assembleOp(w[3], true);
 			} else {
 				ins->_11_23 = 2;
-				os = assembleOp(w[2], true);
+				wOffset = 2;
 			}
-		}
-		if (w[1] == "constant") {
+		} else if (w[1] == "constant") {
 			ins->_11_23 = 1;
-			os = assembleOp(w[2], true);
+			wOffset = 2;
 		}
+		string sOp = w[wOffset];
+		if (w.size() > wOffset) {
+			if (w[wOffset + 1] == "{min16f}")
+				sOp += " {min16f}";
+		}
+		os = assembleOp(sOp, true);
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
@@ -1766,7 +1810,12 @@ vector<DWORD> assembleIns(string s) {
 		ins->opcode = 100;
 		if (w[1] == "linear") {
 			if (w[2] == "noperspective") {
-				if (w[3] == "centroid") {
+				if (w[3] == "sample") {
+					ins->_11_23 = 7;
+					os = assembleOp(w[4], true);
+					if (w[5] == "position")
+						os.push_back(1);
+				} else if (w[3] == "centroid") {
 					ins->_11_23 = 5;
 					os = assembleOp(w[4], true);
 					if (w[5] == "position")
@@ -2332,6 +2381,10 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	codeStart[1] = newCodeSize;
 	vector<byte> newCode(newCodeSize);
 	o[1] = o.size();
+	for (int i = 0; i < o.size(); i++) {
+		if (o[i] == 0x12404001) o[i] == 0x00004001;
+		if (o[i] == 0x12404002) o[i] == 0x00004002;
+	}
 	memcpy(newCode.data(), o.data(), newCodeSize);
 	it = buffer.begin() + chunkOffsets[codeChunk] + 8;
 	buffer.insert(it, newCode.begin(), newCode.end());
@@ -2339,6 +2392,7 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	for (DWORD i = codeChunk + 1; i < numChunks; i++) {
 		dwordBuffer[8 + i] += newCodeSize - codeSize;
 	}
+
 	dwordBuffer[6] = buffer.size();
 	vector<DWORD> hash = ComputeHash((byte const*)buffer.data() + 20, buffer.size() - 20);
 	dwordBuffer[1] = hash[0];

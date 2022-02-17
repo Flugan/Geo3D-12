@@ -1,9 +1,11 @@
-;DXIL mostly
-;c:\Flugan\Alan Wake Remastered
-;c:\Flugan\Cyberpunk 2077
-;c:\Flugan\Deathloop
-;c:\Flugan\Horizon Zero Dawn
-;c:\Flugan\Marvel's Guardians of the Galaxy
-;c:\Flugan\Metro Exodus Enhanced Edition
-;c:\Flugan\Red Dead Redemption 2
-;c:\Flugan\Resident Evil Village
+;DXIL
+Alan Wake Remastered
+Cyberpunk 2077
+Deathloop
+F1 2021
+Horizon Zero Dawn
+Marvel's Guardians of the Galaxy
+Metro Exodus Enhanced Edition
+Red Dead Redemption 2
+Resident Evil Village
+Star Wars Battlefront 2

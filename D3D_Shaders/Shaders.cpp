@@ -56,108 +56,68 @@ int _tmain(int argc, _TCHAR* argv[])
 		string gameName = gameNames[i];
 		if (gameName[0] == ';')
 			continue;
-		cout << gameName << ":" << endl;
+		cout << gameName << endl;
 
 		pathName = gameName;
-		pathName.append("\\ShaderCache\\");
-		files = enumerateFiles(pathName, "????????????????-??.bin");
-		if (files.size() > 0) {
-			cout << "bin->asm: ";
+		pathName.append("ShaderCache\\");
+		auto newFiles = enumerateFiles(pathName, "????????????????-??.bin");
+		files.insert(files.end(), newFiles.begin(), newFiles.end());
+	}
+
 #pragma omp parallel
 #pragma omp for
-			for (int i = 0; i < files.size(); i++) {
-				string fileName = files[i];
-				vector<byte> ASM;
-				ASM = disassembler(readFile(fileName));
-				if (ASM.size() > 0) {
-					fileName.erase(fileName.size() - 3, 3);
-					fileName.append("txt");
-					FILE* f;
-					fopen_s(&f, fileName.c_str(), "wb");
-					fwrite(ASM.data(), 1, ASM.size(), f);
-					fclose(f);
-				}
-				else {
-					cout << endl << fileName;
-				}
-			}
-			cout << endl;
-		}
-
-		pathName = gameName;
-		pathName.append("\\ShaderCache\\");
-		files = enumerateFiles(pathName, "????????????????-??.txt");
-		if (files.size() > 0) {
-			cout << "asm->cbo: ";
-#pragma omp for
-			for (int i = 0; i < files.size(); i++) {
-				string fileName = files[i];
-
-				auto ASM = readFile(fileName);
-				if (ASM[0] == ';') {
-					cout << endl << fileName;
-				}
-
-				fileName.erase(fileName.size() - 3, 3);
-				fileName.append("bin");
-				auto BIN = readFile(fileName);
-				if (BIN.size() > 0) {
-					auto CBO = assembler(ASM, BIN);
-					if (CBO.size() > 0) {
-						fileName.erase(fileName.size() - 3, 3);
-						fileName.append("cbo");
-						FILE* f;
-						fopen_s(&f, fileName.c_str(), "wb");
-						fwrite(CBO.data(), 1, CBO.size(), f);
-						fclose(f);
-					}
-				}
-			}
-			cout << endl;
-		}
-
-		pathName = gameName;
-		pathName.append("\\ShaderCache\\");
-		files = enumerateFiles(pathName, "????????????????-??.cbo");
-		if (files.size() > 0) {
-			cout << "bin==cbo: ";
-#pragma omp for
-			for (int i = 0; i < files.size(); i++) {
-				string fileName = files[i];
-
-				auto CBO = readFile(fileName);
-
-				fileName.erase(fileName.size() - 3, 3);
-				fileName.append("bin");
-				auto BIN = readFile(fileName);
-
-				bool valid = true;
-				if (CBO.size() == BIN.size()) {
-					for (size_t i = 0; i < CBO.size(); i++) {
-						if (CBO[i] != BIN[i]) {
-							valid = false;
-							break;
-						}
-					}
-				}
-				else {
+	for (int i = 0; i < files.size(); i++) {
+		string fileName = files[i];
+		auto BIN = readFile(fileName);
+		auto ASM = disassembler(BIN);
+		/*
+		vector<byte> CBO = assembler(ASM, BIN);
+		bool valid = true;
+		if (CBO.size() == BIN.size()) {
+			for (size_t i = 0; i < CBO.size(); i++) {
+				if (CBO[i] != BIN[i]) {
 					valid = false;
-				}
-				if (!valid) {
-					cout << endl << "Invalid: " << fileName;
-					auto ASM2 = disassembler(CBO);
-					if (ASM2.size() > 0) {
-						fileName.erase(fileName.size() - 3, 3);
-						fileName.append("fail");
-						FILE* f;
-						fopen_s(&f, fileName.c_str(), "wb");
-						fwrite(ASM2.data(), 1, ASM2.size(), f);
-						fclose(f);
-					}
+					break;
 				}
 			}
-			cout << endl;
 		}
+		else {
+			valid = false;
+		}
+		
+		if (ASM[0] == ';') {
+			string ASMfilename = fileName;
+			ASMfilename.erase(fileName.size() - 3, 3);
+			ASMfilename.append("dxil.txt");
+			fopen_s(&f, ASMfilename.c_str(), "wb");
+			fwrite(ASM.data(), 1, ASM.size(), f);
+			fclose(f);
+			continue;
+		}
+		else {
+			string ASMfilename = fileName;
+			ASMfilename.erase(fileName.size() - 3, 3);
+			ASMfilename.append("txt");
+			fopen_s(&f, ASMfilename.c_str(), "wb");
+			fwrite(ASM.data(), 1, ASM.size(), f);
+			fclose(f);
+		}
+
+		fileName.erase(fileName.size() - 3, 3);
+		fileName.append("fail.txt");
+		if (!valid) {
+			auto ASM2 = disassembler(CBO);
+			if (ASM2.size() > 0) {
+				FILE* f;
+				fopen_s(&f, fileName.c_str(), "wb");
+				fwrite(ASM2.data(), 1, ASM2.size(), f);
+				fclose(f);
+			}
+		}
+		else {
+			DeleteFileA(fileName.c_str());
+		}
+		*/
 	}
 	writeLUT();
 	cout << endl;

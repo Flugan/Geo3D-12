@@ -1,58 +1,58 @@
-c:\Flugan\Alan Wake Remastered\
-c:\Flugan\Amid Evil\
-c:\Flugan\Aron's Adventure\
-c:\Flugan\Ashes of the Singularity Escalation\
-c:\Flugan\Battlefield 1\
-c:\Flugan\Battlefield V\
-c:\Flugan\BIOMUTANT\
-c:\Flugan\Borderlands 3\
-c:\Flugan\Bright Memory\
-c:\Flugan\Bright Memory Infinite\
-c:\Flugan\Control\
-c:\Flugan\Cyberpunk 2077\
-c:\Flugan\Death Stranding\
-c:\Flugan\Deathloop\
-c:\Flugan\Deliver Us the Moon\
-c:\Flugan\Delores\
-c:\Flugan\Deus Ex Breach\
-c:\Flugan\Deus Ex Mankind Divided\
-c:\Flugan\Devil May Cry 5\
-c:\Flugan\F1 2018\
-c:\Flugan\F1 2021\
-c:\Flugan\FIFA18\
-c:\Flugan\FIFA20\
-c:\Flugan\FIFA22\
-c:\Flugan\FIST\
-c:\Flugan\Ghostrunner\
-c:\Flugan\Godfall\
-c:\Flugan\hellblade\
-c:\Flugan\Hitman\
-c:\Flugan\HITMAN 2\
-c:\Flugan\Horizon Zero Dawn\
-c:\Flugan\Kena Bridge of Spirits\
-c:\Flugan\Madden NFL 22\
-c:\Flugan\Marvel's Guardians of the Galaxy\
-c:\Flugan\Metro Exodus\
-c:\Flugan\Metro Exodus Enhanced Edition\
-c:\Flugan\Mortal Kombat 11\
-c:\Flugan\Mortal Shell\
-c:\Flugan\Myst\
-c:\Flugan\Red Dead Redemption 2\
-c:\Flugan\Resident Evil 2\
-c:\Flugan\Resident Evil 3\
-c:\Flugan\Resident Evil Village\
-c:\Flugan\Rise of the Tomb Raider\
-c:\Flugan\Serious Sam Fusion\
-c:\Flugan\Severed Steel\
-c:\Flugan\Shadow of the Tomb Raider\
-c:\Flugan\Sid Meier's Civilization VI\
-c:\Flugan\Sniper Elite 4\
-c:\Flugan\Star Wars Battlefront 2\
-c:\Flugan\Strange Brigade\
-c:\Flugan\Tetris Effect\
-c:\Flugan\The Fabled Woods\
-c:\Flugan\The Medium\
-c:\Flugan\The Talos Principle\
-c:\Flugan\The Turing Test\
-c:\Flugan\Tom Clancy's The Division\
-c:\Flugan\WRC10\
+;c:\Flugan\Alan Wake Remastered\
+;c:\Flugan\Amid Evil\
+;c:\Flugan\Aron's Adventure\
+;c:\Flugan\Ashes of the Singularity Escalation\
+;c:\Flugan\Battlefield 1\
+;c:\Flugan\Battlefield V\
+;c:\Flugan\BIOMUTANT\
+;c:\Flugan\Borderlands 3\
+;c:\Flugan\Bright Memory\
+;c:\Flugan\Bright Memory Infinite\
+;c:\Flugan\Control\
+;c:\Flugan\Cyberpunk 2077\
+;c:\Flugan\Death Stranding\
+;c:\Flugan\Deathloop\
+;c:\Flugan\Deliver Us the Moon\
+;c:\Flugan\Delores\
+;c:\Flugan\Deus Ex Breach\
+;c:\Flugan\Deus Ex Mankind Divided\
+;c:\Flugan\Devil May Cry 5\
+;c:\Flugan\F1 2018\
+;c:\Flugan\F1 2021\
+;c:\Flugan\FIFA18\
+;c:\Flugan\FIFA20\
+;c:\Flugan\FIFA22\
+;c:\Flugan\FIST\
+;c:\Flugan\Ghostrunner\
+;c:\Flugan\Godfall\
+;c:\Flugan\hellblade\
+;c:\Flugan\Hitman\
+;c:\Flugan\HITMAN 2\
+;c:\Flugan\Horizon Zero Dawn\
+;c:\Flugan\Kena Bridge of Spirits\
+;c:\Flugan\Madden NFL 22\
+;c:\Flugan\Marvel's Guardians of the Galaxy\
+;c:\Flugan\Metro Exodus\
+;c:\Flugan\Metro Exodus Enhanced Edition\
+;c:\Flugan\Mortal Kombat 11\
+;c:\Flugan\Mortal Shell\
+;c:\Flugan\Myst\
+;c:\Flugan\Red Dead Redemption 2\
+;c:\Flugan\Resident Evil 2\
+;c:\Flugan\Resident Evil 3\
+;c:\Flugan\Resident Evil Village\
+;c:\Flugan\Rise of the Tomb Raider\
+;c:\Flugan\Serious Sam Fusion\
+;c:\Flugan\Severed Steel\
+;c:\Flugan\Shadow of the Tomb Raider\
+;c:\Flugan\Sid Meier's Civilization VI\
+;c:\Flugan\Sniper Elite 4\
+;c:\Flugan\Star Wars Battlefront 2\
+;c:\Flugan\Strange Brigade\
+;c:\Flugan\Tetris Effect\
+;c:\Flugan\The Fabled Woods\
+;c:\Flugan\The Medium\
+;c:\Flugan\The Talos Principle\
+;c:\Flugan\The Turing Test\
+;c:\Flugan\Tom Clancy's The Division\
+;c:\Flugan\WRC10\
