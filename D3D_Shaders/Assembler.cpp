@@ -932,6 +932,8 @@ DWORD parseAoffimmi(DWORD start, string o) {
 	return aoffimmi;
 }
 
+map<string, vector<DWORD>> shaderLUT = {};
+
 map<string, vector<DWORD>> hackMap = {
 	{ "dcl_output oMask", { 0x02000065, 0x0000F000 } },
 };
@@ -1166,6 +1168,9 @@ DWORD ldFlag(string s) {
 }
 
 vector<DWORD> assembleIns(string s) {
+	if (shaderLUT.find(s) != shaderLUT.end())
+		return shaderLUT[s];
+
 	if (hackMap.find(s) != hackMap.end())
 		return hackMap[s];
 	DWORD op = 0;
@@ -2294,6 +2299,63 @@ string shaderModel(byte* buffer) {
 	return shaderModel;
 }
 
+void createLUT(DWORD* codeStart, vector<byte> buffer) {
+	vector<byte> asmFile = disassembler(buffer);
+	vector<string> lines = stringToLines((char*)asmFile.data(), asmFile.size());
+	bool codeStarted = false;
+	bool multiLine = false;
+	string s2;
+	vector<DWORD> o;
+	for (DWORD i = 0; i < lines.size(); i++) {
+		string s = lines[i];
+		shader_ins* ins = (shader_ins*)codeStart;
+		vector<DWORD> o;
+		if (memcmp(s.c_str(), "//", 2) != 0 && memcmp(s.c_str(), "#line", 5) != 0) {
+			vector<DWORD> v;
+			if (!codeStarted) {
+				if (s.size() > 0 && s[0] != ' ') {
+					codeStarted = true;
+					o.push_back(*codeStart);
+					codeStart++;
+					shaderLUT[s] = o;
+					codeStart++; // Shader size
+				}
+			}
+			else if (s.find("{ {") < s.size()) {
+				s2 = s;
+				multiLine = true;
+			}
+			else if (s.find("} }") < s.size()) {
+				s2.append("\n");
+				s2.append(s);
+				s = s2;
+				multiLine = false;
+				o.push_back(*codeStart);
+				codeStart++;
+				auto lenght = *codeStart;
+				o.push_back(*codeStart);
+				codeStart++;
+				for (size_t i = 0; i < lenght; i++) {
+					o.push_back(*codeStart);
+					codeStart++;
+				}
+				shaderLUT[s] = o;
+			}
+			else if (multiLine) {
+				s2.append("\n");
+				s2.append(s);
+			}
+			else if (s.size() > 0) {
+				for (size_t i = 0; i < ins->length; i++) {
+					o.push_back(*codeStart);
+					codeStart++;
+				}
+				shaderLUT[s] = o;
+			}
+		}
+	}
+}
+
 vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	if (asmFile[0] == ';') {
 		ComPtr<IDxcUtils> pUtils;
@@ -2347,6 +2409,7 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	}	
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
 
+	createLUT(codeStart, buffer);
 	vector<string> lines = stringToLines((char*)asmFile.data(), asmFile.size());
 	bool codeStarted = false;
 	bool multiLine = false;
