@@ -1153,17 +1153,23 @@ DWORD toLD(string s) {
 
 DWORD ldFlag(string s) {
 	if (s == "refactoringAllowed")
-		return 1;
+		return 0x1;
+	if (s == "enableDoublePrecisionFloatOps")
+		return 0x2;
 	if (s == "forceEarlyDepthStencil")
-		return 4;
+		return 0x4;
 	if (s == "enableRawAndStructuredBuffers")
-		return 8;
+		return 0x8;
 	if (s == "skipOptimization")
-		return 16;
+		return 0x10;
 	if (s == "enableMinimumPrecision")
-		return 32;
+		return 0x20;
+	if (s == "enable11_1DoubleExtensions")
+		return 0x40;
+	if (s == "enable11_1ShaderExtensions")
+		return 0x80;
 	if (s == "allResourcesBound")
-		return 256;
+		return 0x100;
 	return 0;
 }
 
