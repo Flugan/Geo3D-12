@@ -10,7 +10,8 @@ static map<string, vector<DWORD>> codeBin;
 string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
-	vector<DWORD> hex = { 0x0000ffff, 0x7fffffff, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1 };
+	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff, 
+		0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000 };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
@@ -541,13 +542,29 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 		tOp->extended = 1;
 		ext |= 0x4001;
 	}
+	pos = s.find(" {min16u}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x14001;
+	}
 	pos = s.find(" {min16f as def32}");
 	if (pos < s.size()) {
 		s = s.substr(0, pos);
 		tOp->extended = 1;
 		ext |= 0x4001;
 	}
+	pos = s.find(" {min16u as def32}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x14001;
+	}
 	pos = s.find(" {def32 as min16f}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+	}
+	pos = s.find(" {def32 as min16u}");
 	if (pos < s.size()) {
 		s = s.substr(0, pos);
 	}
@@ -642,65 +659,56 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 	}
 	else {
 		if (s[0] == 'U') { s[0] = 'u'; }
-		if (s[0] == 'T') { s[0] = 't'; }
 		if (s[0] == 'S') { s[0] = 's'; }
 		if (s[0] == 'C' && s[1] == 'B') { s[0] = 'c'; s[1] = 'b'; }
 
 		string r(s);
 
+		bool keep = false;
+
 		if (s[0] == 'o') {
 			tOp->file = 2;
-		}
-		else if (s[0] == 'x') {
+		} else if (s[0] == 'x') {
 			tOp->file = 3;
-		}
-		else if (s[0] == 'v') {
+		} else if (s[0] == 'v') {
 			tOp->file = 1;
 			if (s.size() > 4 && s[1] == 'i' && s[2] == 'c' && s[3] == 'p') { // vicp
 				tOp->file = 0x19;
 				s.erase(s.begin());
 				s.erase(s.begin());
 				s.erase(s.begin());
-			}
-			else if (s.size() > 4 && s[1] == 'o' && s[2] == 'c' && s[3] == 'p') { // vocp
+			} else if (s.size() > 4 && s[1] == 'o' && s[2] == 'c' && s[3] == 'p') { // vocp
 				tOp->file = 0x1A;
 				s.erase(s.begin());
 				s.erase(s.begin());
 				s.erase(s.begin());
-			}
-			else if (s[1] == 'p' && s[2] == 'c') {
+			} else if (s[1] == 'p' && s[2] == 'c') { // vpc
 				tOp->file = 0x1B;
 				s.erase(s.begin());
 				s.erase(s.begin());
 			}
-		}
-		else if (s[0] == 'r') {
+		} else if (s[0] == 'r') {
 			tOp->file = 0;
-		}
-		else if (s[0] == 's') {
+		} else if (s[0] == 's') {
 			tOp->file = 6;
-		}
-		else if (s[0] == 't') {
+		} else if (s[0] == 'T') {
 			tOp->file = 7;
-		}
-		else if (s[0] == 'g') {
+			keep = true;
+		} else if (s[0] == 't') {
+			tOp->file = 7;
+		} else if (s[0] == 'g') {
 			tOp->file = 0x1F;
-		}
-		else if (s[0] == 'u') {
+		} else if (s[0] == 'u') {
 			tOp->file = 0x1E;
-		}
-		else if (s[0] == 'm') {
+		} else if (s[0] == 'm') {
 			tOp->file = 0x10;
-		}
-		else if (s[0] == 'l') {
+		} else if (s[0] == 'l') {
 			tOp->file = 4;
-		}
-		else if (s[0] == 'i') {
+		} else if (s[0] == 'i') {
 			tOp->file = 9;
 			s.erase(s.begin());
 			s.erase(s.begin());
-		}
-		else if (s[0] == 'c') {
+		} else if (s[0] == 'c') {
 			tOp->file = 8;
 			s.erase(s.begin());
 		}
@@ -719,7 +727,6 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 			}
 			tOp->sel = 0xE4;
 			tOp->mode = 1;
-			tOp->comps_enum = 2;
 			int pos2 = s.find_first_of("]");
 			string index = s.substr(pos + 1, pos2 - pos - 1);
 			if (index.find(":") < index.size()) {
@@ -805,9 +812,11 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 				handleSwizzle(swizzle, tOp, special);
 			}
 			else {
-				tOp->comps_enum = 0;
-				tOp->mode = 0;
-				tOp->sel = 0;
+				if (!keep) {
+					tOp->comps_enum = 0;
+					tOp->mode = 0;
+					tOp->sel = 0;
+				}
 				if (special) {
 					tOp->comps_enum = 2;
 					handleSwizzle("xyzw", tOp, false);
@@ -923,13 +932,12 @@ DWORD parseAoffimmi(DWORD start, string o) {
 	return aoffimmi;
 }
 
-map<string, vector<DWORD>> shaderLUT = {};
-
 map<string, vector<DWORD>> hackMap = {
 	{ "dcl_output oMask", { 0x02000065, 0x0000F000 } },
 };
 
 map<string, vector<int>> ldMap = {
+	{ "gather4_c_aoffimmi", { 5, 126, 1 } },
 	{ "gather4_c_aoffimmi_indexable", { 5, 126, 3 } },
 	{ "gather4_c_indexable", { 5, 126, 2 } },
 	{ "gather4_aoffimmi", { 4, 109, 1 } },
@@ -944,6 +952,7 @@ map<string, vector<int>> ldMap = {
 	{ "ld_indexable", { 3, 45, 2 } },
 	{ "ld_raw_indexable", { 3, 165, 2 } },
 	{ "ldms_indexable", { 4, 46, 2 } },
+	{ "ldms_aoffimmi", { 4, 46, 1 } },
 	{ "ldms_aoffimmi_indexable", { 4, 46, 3 } },
 	{ "sample_aoffimmi", { 4, 69, 1 } },
 	{ "sample_d_indexable", { 6, 73, 2 } },
@@ -965,6 +974,7 @@ map<string, vector<int>> ldMap = {
 };
 
 map<string, vector<int>> insMap = {
+	{ "gather4_c", { 5, 126 } },
 	{ "sample_b", { 5, 74 } },
 	{ "sample_c", { 5, 70 } },
 	{ "sample_d", { 6, 73 } },
@@ -1057,9 +1067,9 @@ map<string, vector<int>> insMap = {
 	{ "if_z", { 1, 31, 0 } },
 	{ "if_nz", { 1, 31, 0 } },
 	{ "switch", { 1, 76, 0 } },
-	{ "continuec_z", { 1, 8 } },
-	{ "continuec_nz", { 1, 8 } },
-	{ "retc_nz", { 1, 63 } },
+	{ "continuec_z", { 1, 8, 0 } },
+	{ "continuec_nz", { 1, 8, 0 } },
+	{ "retc_nz", { 1, 63, 0 } },
 	{ "retc_z", { 1, 63 } },	
 	{ "imm_atomic_and", { 4, 181 } },
 	{ "imm_atomic_exch", { 4, 184 } },
@@ -1125,10 +1135,6 @@ map<string, vector<int>> miniInsMap = {
 	{ "continue", { 7 } },
 };
 
-
-
-
-
 DWORD toLD(string s) {
 	if (s == "(float,float,float,float)")
 		return 0x5555;
@@ -1150,6 +1156,8 @@ DWORD ldFlag(string s) {
 		return 4;
 	if (s == "enableRawAndStructuredBuffers")
 		return 8;
+	if (s == "skipOptimization")
+		return 16;
 	if (s == "enableMinimumPrecision")
 		return 32;
 	if (s == "allResourcesBound")
@@ -1158,9 +1166,6 @@ DWORD ldFlag(string s) {
 }
 
 vector<DWORD> assembleIns(string s) {
-	if (shaderLUT.find(s) != shaderLUT.end())
-		return shaderLUT[s];
-
 	if (hackMap.find(s) != hackMap.end())
 		return hackMap[s];
 	DWORD op = 0;
@@ -1232,7 +1237,6 @@ vector<DWORD> assembleIns(string s) {
 			numSpecial = vIns[2];
 		}
 		int offset = 0;
-		int offsetSpace = 0;
 		for (int i = 0; i < numOps; i++) {
 			int offsetSpace = i + 1 + offset;
 			string sOp = w[offsetSpace];
@@ -1245,6 +1249,10 @@ vector<DWORD> assembleIns(string s) {
 				if (w[offsetSpace + 1] == "{min16f}|") {
 					offset += 1;
 					sOp += " {min16f}|";
+				}
+				if (w[offsetSpace + 1] == "{min16u}") {
+					offset += 1;
+					sOp += " {min16u}";
 				}
 			}
 			if (offsetSpace + 3 < w.size()) {
@@ -1266,6 +1274,18 @@ vector<DWORD> assembleIns(string s) {
 					offset += 3;
 					sOp += " {def32 as min16f}|";
 				}
+				if (w[offsetSpace + 1] == "{def32" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16u}") {
+					offset += 3;
+					sOp += " {def32 as min16u}";
+				}
+				if (w[offsetSpace + 1] == "{def32" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16u}|") {
+					offset += 3;
+					sOp += " {def32 as min16u}|";
+				}
 				if (w[offsetSpace + 1] == "{min16f" &&
 					w[offsetSpace + 2] == "as" &&
 					w[offsetSpace + 3] == "def32}") {
@@ -1278,11 +1298,20 @@ vector<DWORD> assembleIns(string s) {
 					offset += 3;
 					sOp += " {min16f as def32}|";
 				}
+				if (w[offsetSpace + 1] == "{min16u" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "def32}") {
+					offset += 3;
+					sOp += " {min16u as def32}";
+				}
+				if (w[offsetSpace + 1] == "{min16u" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "def32}|") {
+					offset += 3;
+					sOp += " {min16u as def32}|";
+				}
 			}
-
-			vector<DWORD> tempOps = assembleOp(sOp, i < numSpecial);
-
-			Os.push_back(tempOps);
+			Os.push_back(assembleOp(sOp, i < numSpecial));
 		}
 		if (bSat)
 			ins->_11_23 |= 4;
@@ -1306,8 +1335,30 @@ vector<DWORD> assembleIns(string s) {
 		}
 		int startPos = 1 + (vIns[2] & 3);
 		int numSpecial = 1;
-		for (int i = 0; i < numOps; i++)
-			Os.push_back(assembleOp(w[i + startPos], i < numSpecial));
+		int offset = 0;
+		for (int i = 0; i < numOps; i++) {
+			int offsetSpace = i + startPos + offset;
+			string sOp = w[offsetSpace];
+			if (offsetSpace + 1 < w.size()) {
+				if (w[offsetSpace + 1] == "{min16f}") {
+					offset += 1;
+					sOp += " {min16f}";
+				}
+				if (w[offsetSpace + 1] == "{min16u}") {
+					offset += 1;
+					sOp += " {min16u}";
+				}
+			}
+			if (offsetSpace + 3 < w.size()) {
+				if (w[offsetSpace + 1] == "{def32" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16u}") {
+					offset += 3;
+					sOp += " {def32 as min16u}";
+				}
+			}
+			Os.push_back(assembleOp(sOp, i < numSpecial));
+		}
 		ins->opcode = vIns[1];
 		ins->length = 1 + (vIns[2] & 3);
 		if (vIns[2] != 0)
@@ -1435,6 +1486,10 @@ vector<DWORD> assembleIns(string s) {
 		ins->_11_23 = 2;
 		v.insert(v.end(), os.begin(), os.end());
 		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
 		ins->length = 1 + v.size();
 		v.insert(v.begin(), op);
 	} else if (o == "dcl_resource_texture1darray") {
@@ -1443,6 +1498,10 @@ vector<DWORD> assembleIns(string s) {
 		ins->_11_23 = 7;
 		v.insert(v.end(), os.begin(), os.end());
 		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
 		ins->length = 1 + v.size();
 		v.insert(v.begin(), op);
 	} else if (o == "dcl_uav_typed_texture1d") {
@@ -1519,6 +1578,10 @@ vector<DWORD> assembleIns(string s) {
 		ins->_11_23 = 10;
 		v.insert(v.end(), os.begin(), os.end());
 		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
 		ins->length = 1 + v.size();
 		v.insert(v.begin(), op);
 	} else if (o == "dcl_resource_texture2darray") {
@@ -1610,6 +1673,8 @@ vector<DWORD> assembleIns(string s) {
 	} else if (o == "dcl_resource_texture2dmsarray") {
 		vector<DWORD> os = assembleOp(w[3], true);
 		ins->opcode = 88;
+		if (w[1] == "(0)")
+			ins->_11_23 = 9;
 		if (w[1] == "(2)")
 			ins->_11_23 = 73;
 		if (w[1] == "(4)")
@@ -1761,28 +1826,34 @@ vector<DWORD> assembleIns(string s) {
 	} else if (o == "dcl_input_ps") {
 		vector<DWORD> os;
 		ins->opcode = 98;
-		int wOffset = 3;
 		if (w[1] == "linear") {
 			if (w[2] == "noperspective") {
-				ins->_11_23 = 4;
+				if (w[3] == "sample") {
+					ins->_11_23 = 7;
+					os = assembleOp(w[4], true);
+				} else {
+					ins->_11_23 = 4;
+					os = assembleOp(w[3], true);
+				}
 			} else if (w[2] == "centroid") {
 				ins->_11_23 = 3;
+				os = assembleOp(w[3], true);
 			} else if (w[2] == "sample") {
 				ins->_11_23 = 6;
+				os = assembleOp(w[3], true);
 			} else {
 				ins->_11_23 = 2;
-				wOffset = 2;
+				if (w.size() > 3) {
+					os = assembleOp(w[2] + " " + w[3], true);
+				} else {
+					os = assembleOp(w[2], true);
+				}
 			}
-		} else if (w[1] == "constant") {
+		}
+		if (w[1] == "constant") {
 			ins->_11_23 = 1;
-			wOffset = 2;
+			os = assembleOp(w[2], true);
 		}
-		string sOp = w[wOffset];
-		if (w.size() > wOffset) {
-			if (w[wOffset + 1] == "{min16f}")
-				sOp += " {min16f}";
-		}
-		os = assembleOp(sOp, true);
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
@@ -2223,63 +2294,6 @@ string shaderModel(byte* buffer) {
 	return shaderModel;
 }
 
-void createLUT(DWORD* codeStart, vector<byte> buffer) {
-	vector<byte> asmFile = disassembler(buffer);
-	vector<string> lines = stringToLines((char*)asmFile.data(), asmFile.size());
-	bool codeStarted = false;
-	bool multiLine = false;
-	string s2;
-	vector<DWORD> o;
-	for (DWORD i = 0; i < lines.size(); i++) {
-		string s = lines[i];
-		shader_ins* ins = (shader_ins*)codeStart;
-		vector<DWORD> o;
-		if (memcmp(s.c_str(), "//", 2) != 0 && memcmp(s.c_str(), "#line", 5) != 0) {
-			vector<DWORD> v;
-			if (!codeStarted) {
-				if (s.size() > 0 && s[0] != ' ') {
-					codeStarted = true;
-					o.push_back(*codeStart);
-					codeStart++;
-					shaderLUT[s] = o;
-					codeStart++; // Shader size
-				}
-			}
-			else if (s.find("{ {") < s.size()) {
-				s2 = s;
-				multiLine = true;
-			}
-			else if (s.find("} }") < s.size()) {
-				s2.append("\n");
-				s2.append(s);
-				s = s2;
-				multiLine = false;
-				o.push_back(*codeStart);
-				codeStart++;
-				auto lenght = *codeStart;
-				o.push_back(*codeStart);
-				codeStart++;
-				for (size_t i = 0; i < lenght; i++) {
-					o.push_back(*codeStart);
-					codeStart++;
-				}
-				shaderLUT[s] = o;
-			}
-			else if (multiLine) {
-				s2.append("\n");
-				s2.append(s);
-			}
-			else if (s.size() > 0) {
-				for (size_t i = 0; i < ins->length; i++) {
-					o.push_back(*codeStart);
-					codeStart++;
-				}
-				shaderLUT[s] = o;
-			}
-		}
-	}
-}
-
 vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	if (asmFile[0] == ';') {
 		ComPtr<IDxcUtils> pUtils;
@@ -2333,11 +2347,6 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	}	
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
 
-	//createLUT(codeStart, buffer);
-
-	if (asmFile.size() == 0) {
-		throw invalid_argument("Empty ASM");
-	}
 	vector<string> lines = stringToLines((char*)asmFile.data(), asmFile.size());
 	bool codeStarted = false;
 	bool multiLine = false;
@@ -2399,8 +2408,6 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	dwordBuffer[2] = hash[1];
 	dwordBuffer[3] = hash[2];
 	dwordBuffer[4] = hash[3];
-
-	shaderLUT.clear();
 
 	return buffer;
 }
