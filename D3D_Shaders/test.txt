@@ -14,7 +14,7 @@
 ; SV_Position              0   xyzw        0      POS   float   xyzw
 ; TEXCOORD                 0   xy          1     NONE   float   xy  
 ;
-; shader hash: 428f6131ab09409dca724034ed57b9b7
+; shader hash: 3ee159f27da81c2e6f287eb9788c756c
 ;
 ; Pipeline Runtime Information: 
 ;
@@ -50,7 +50,7 @@
 ; Number of inputs: 8, outputs: 6
 ; Outputs dependent on ViewId: {  }
 ; Inputs contributing to computation of Outputs:
-;   output 0 depends on inputs: { 0 }
+;   output 0 depends on inputs: { 0, 3 }
 ;   output 1 depends on inputs: { 1 }
 ;   output 2 depends on inputs: { 2 }
 ;   output 3 depends on inputs: { 3 }
@@ -67,7 +67,18 @@ define void @VSMain() {
   %4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %5 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %6 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %3)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  %7 = fcmp fast une float %6, 1.000000e+00
+  br i1 %7, label %8, label %12
+
+; <label>:8                                       ; preds = %0
+  %9 = fadd fast float %6, -1.000000e+00
+  %10 = fmul fast float %9, 0x3FB99999A0000000
+  %11 = fadd fast float %10, %3
+  br label %12
+
+; <label>:12                                      ; preds = %8, %0
+  %13 = phi float [ %11, %8 ], [ %3, %0 ]
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %13)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %4)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %5)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %6)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
@@ -96,7 +107,7 @@ attributes #1 = { nounwind }
 !1 = !{i32 1, i32 0}
 !2 = !{i32 1, i32 6}
 !3 = !{!"vs", i32 6, i32 0}
-!4 = !{[10 x i32] [i32 8, i32 6, i32 1, i32 2, i32 4, i32 8, i32 16, i32 32, i32 0, i32 0]}
+!4 = !{[10 x i32] [i32 8, i32 6, i32 1, i32 2, i32 4, i32 9, i32 16, i32 32, i32 0, i32 0]}
 !5 = !{void ()* @VSMain, !"VSMain", !6, null, null}
 !6 = !{!7, !13, null}
 !7 = !{!8, !11}

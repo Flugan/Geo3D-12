@@ -11,7 +11,7 @@ string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
 	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff, 
-		0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000 };
+		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000 };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
@@ -491,12 +491,6 @@ DWORD strToDWORD(string s) {
 	}
 	if (s == "1.#INF00") {
 		return 0x7F800000;
-	}
-	if (s == "-nan") {
-		return 0xffaa5502;
-	}
-	if (s == "nan") {
-		return 0xffaa5501;
 	}
 	if (s.substr(0, 2) == "0x") {
 		DWORD decimalValue;
@@ -1170,7 +1164,7 @@ DWORD ldFlag(string s) {
 		return 0x80;
 	if (s == "allResourcesBound")
 		return 0x100;
-	return 0;
+		return 0;
 }
 
 vector<DWORD> assembleIns(string s) {
@@ -2363,6 +2357,9 @@ void createLUT(DWORD* codeStart, vector<byte> buffer) {
 }
 
 vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
+	vector<byte> ret;
+	if (asmFile.size() == 0)
+		return ret;
 	if (asmFile[0] == ';') {
 		ComPtr<IDxcUtils> pUtils;
 		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(pUtils.GetAddressOf()));
@@ -2372,7 +2369,6 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 		pUtils->CreateBlob(asmFile.data(), asmFile.size(), CP_ACP, pSource.GetAddressOf());
 		ComPtr<IDxcOperationResult> pRes;
 		HRESULT hr = pAssembler->AssembleToContainer(pSource.Get(), pRes.GetAddressOf());
-		vector<byte> ret;
 		if (hr == S_OK) {
 			ComPtr<IDxcBlob> pBlob;
 			pRes->GetResult(pBlob.GetAddressOf());
@@ -2416,6 +2412,7 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
 
 	createLUT(codeStart, buffer);
+
 	vector<string> lines = stringToLines((char*)asmFile.data(), asmFile.size());
 	bool codeStarted = false;
 	bool multiLine = false;
