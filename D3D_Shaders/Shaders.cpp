@@ -70,7 +70,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		string fileName = files[i];
 		auto BIN = readFile(fileName);
 		auto ASM = disassembler(BIN);
-		/*
 		vector<byte> CBO = assembler(ASM, BIN);
 		bool valid = true;
 		if (CBO.size() == BIN.size()) {
@@ -84,7 +83,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		else {
 			valid = false;
 		}
-		
+		/*
 		if (ASM[0] == ';') {
 			string ASMfilename = fileName;
 			ASMfilename.erase(fileName.size() - 3, 3);

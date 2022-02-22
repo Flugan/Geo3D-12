@@ -1168,8 +1168,8 @@ DWORD ldFlag(string s) {
 }
 
 vector<DWORD> assembleIns(string s) {
-	if (shaderLUT.find(s) != shaderLUT.end())
-		return shaderLUT[s];
+	//if (shaderLUT.find(s) != shaderLUT.end())
+	//	return shaderLUT[s];
 
 	if (hackMap.find(s) != hackMap.end())
 		return hackMap[s];
