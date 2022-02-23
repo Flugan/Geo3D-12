@@ -2411,7 +2411,7 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	}	
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
 
-	createLUT(codeStart, buffer);
+	//createLUT(codeStart, buffer);
 
 	vector<string> lines = stringToLines((char*)asmFile.data(), asmFile.size());
 	bool codeStarted = false;
