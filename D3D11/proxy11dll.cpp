@@ -7,10 +7,14 @@
 #pragma data_seg (".d3d11_shared")
 HINSTANCE           gl_hOriginalDll;
 bool				gl_hookedDevice = false;
+bool				gl_hookedContext = false;
+bool				gl_SwapChain_hooked = false;
+bool				gl_SwapChain1_hooked = false;
+bool				gl_left = false;
 bool				gl_dump = true;
 char				cwd[MAX_PATH];
 string				conv = "1.0";
-string				sep = "0.1";
+string				sep = "0.025";
 #pragma data_seg ()
 
 CNktHookLib cHookMgr;
@@ -59,8 +63,6 @@ static UINT64 fnv_64_buf(const void *buf, size_t len)
 
 string changeASM(vector<byte> ASM, bool left) {
 	auto lines = stringToLines((char*)ASM.data(), ASM.size());
-	string shaderL;
-	string shaderR;
 	string shader;
 	string oReg;
 	bool dcl = false;
@@ -168,7 +170,6 @@ void dump(char* type, const void* pData, SIZE_T length) {
 	fclose(f);
 }
 
-
 HRESULT STDMETHODCALLTYPE D3D11_CreateVertexShader(ID3D11Device *This, const void *pShaderBytecode, SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage, ID3D11VertexShader **ppVertexShader) {
 	HRESULT hr;
 	dump("vs", pShaderBytecode, BytecodeLength);
@@ -204,7 +205,7 @@ HRESULT STDMETHODCALLTYPE D3D11_CreateVertexShader(ID3D11Device *This, const voi
 	}
 	compiled = assembler(a, v);
 	hr = sCreateVertexShader_Hook.fn(This, compiled.data(), compiled.size(), pClassLinkage, ppVertexShader);
-	vso.Left = (ID3D11VertexShader*)*ppVertexShader;
+	vso.Right = (ID3D11VertexShader*)*ppVertexShader;
 	VSOmap[vso.Right] = vso;
 	return hr;
 }
@@ -230,7 +231,79 @@ HRESULT STDMETHODCALLTYPE D3D11_CreateComputeShader(ID3D11Device * This, const v
 }
 #pragma endregion
 
+#pragma region DXGI
+void beforePresent() {
+	gl_left = !gl_left;
+}
+
+HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
+	beforePresent();
+	return sDXGI_Present_Hook.fn(This, SyncInterval, Flags);
+}
+
+HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters) {
+	beforePresent();
+	return sDXGI_Present1_Hook.fn(This, SyncInterval, Flags, pPresentParameters);
+}
+
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
+	HRESULT hr = sCreateSwapChain_Hook.fn(This, pDevice, pDesc, ppSwapChain);
+	if (!gl_SwapChain_hooked) {
+		gl_SwapChain_hooked = true;
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+
+		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
+	}
+	return hr;
+}
+
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
+	HRESULT hr = sCreateSwapChainForHWND_Hook.fn(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+	if (!gl_SwapChain1_hooked) {
+		gl_SwapChain1_hooked = true;
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+
+		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
+	}
+	return hr;
+}
+#pragma endregion
+
 #pragma region exports
+void STDMETHODCALLTYPE D3D11C_VSSetShader(ID3D11DeviceContext* This, ID3D11VertexShader* pVertexShader, ID3D11ClassInstance* const* ppClassInstances, UINT NumClassInstances) {
+	if (VSOmap.count(pVertexShader) == 1) {
+		VSO* vso = &VSOmap[pVertexShader];
+		if (gl_left) {
+			sVSSetShader_Hook.fn(This, vso->Left, ppClassInstances, NumClassInstances);
+		}
+		else {
+			sVSSetShader_Hook.fn(This, vso->Right, ppClassInstances, NumClassInstances);
+		}
+	}
+	else {
+		sVSSetShader_Hook.fn(This, pVertexShader, ppClassInstances, NumClassInstances);
+	}
+}
+
+void hook(ID3D11DeviceContext** ppContext) {
+	if (gl_hookedContext)
+		return;
+	gl_hookedContext = true;
+	DWORD_PTR*** vTable = (DWORD_PTR***)*ppContext;
+	D3D11C_VSSS origVSSS = (D3D11C_VSSS)(*vTable)[11];
+
+	cHookMgr.Hook(&(sVSSetShader_Hook.nHookId), (LPVOID*)&(sVSSetShader_Hook.fn), origVSSS, D3D11C_VSSetShader);
+}
+
+void STDMETHODCALLTYPE D3D11_GetImmediateContext(ID3D11Device* This, ID3D11DeviceContext** ppImmediateContext) {
+	sGetImmediateContext_Hook.fn(This, ppImmediateContext);
+	hook(ppImmediateContext);
+}
+
 void hook(ID3D11Device** ppDevice) {
 	if (gl_hookedDevice)
 		return;
@@ -243,12 +316,30 @@ void hook(ID3D11Device** ppDevice) {
 	D3D11_DS origDS = (D3D11_DS)(*vTable)[17];
 	D3D11_CS origCS = (D3D11_CS)(*vTable)[18];
 
+	D3D11_GIC origGIC = (D3D11_GIC)(*vTable)[40];
+
 	cHookMgr.Hook(&(sCreateVertexShader_Hook.nHookId), (LPVOID*)&(sCreateVertexShader_Hook.fn), origVS, D3D11_CreateVertexShader);
 	cHookMgr.Hook(&(sCreatePixelShader_Hook.nHookId), (LPVOID*)&(sCreatePixelShader_Hook.fn), origPS, D3D11_CreatePixelShader);
 	cHookMgr.Hook(&(sCreateGeometryShader_Hook.nHookId), (LPVOID*)&(sCreateGeometryShader_Hook.fn), origGS, D3D11_CreateGeometryShader);
 	cHookMgr.Hook(&(sCreateHullShader_Hook.nHookId), (LPVOID*)&(sCreateHullShader_Hook.fn), origHS, D3D11_CreateHullShader);
 	cHookMgr.Hook(&(sCreateDomainShader_Hook.nHookId), (LPVOID*)&(sCreateDomainShader_Hook.fn), origDS, D3D11_CreateDomainShader);
 	cHookMgr.Hook(&(sCreateComputeShader_Hook.nHookId), (LPVOID*)&(sCreateComputeShader_Hook.fn), origCS, D3D11_CreateComputeShader);
+
+	cHookMgr.Hook(&(sGetImmediateContext_Hook.nHookId), (LPVOID*)&(sGetImmediateContext_Hook.fn), origGIC, D3D11_GetImmediateContext);
+
+	IDXGIFactory1* pFactory1;
+	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
+	vTable = (DWORD_PTR***)pFactory1;
+	DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
+	cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fn), origCSC, DXGI_CreateSwapChain);
+	pFactory1->Release();
+
+	IDXGIFactory2* pFactory2;
+	hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
+	vTable = (DWORD_PTR***)pFactory2;
+	DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
+	cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fn), origCSCFH, DXGI_CreateSwapChainForHWND);
+	pFactory2->Release();
 }
 
 // Exported function (faking d3d11.dll's export)

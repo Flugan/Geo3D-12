@@ -7,6 +7,7 @@
 #include <map>
 #include <string>
 #include "d3d11.h"
+#include "dxgi1_6.h"
 
 using namespace std;
 
@@ -21,3 +22,6 @@ vector<byte> disassembler(vector<byte> buffer);
 vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer);
 vector<byte> readFile(string fileName);
 vector<string> stringToLines(const char* start, size_t size);
+
+void ExitInstance();
+void LoadOriginalDll();
