@@ -291,37 +291,8 @@ vector<byte> disassembler(vector<byte> buffer) {
 	if (hr == S_OK) {
 		asmBuffer = (char*)pDissassembly->GetBufferPointer();
 		asmSize = pDissassembly->GetBufferSize();
-		/*
-		vector<byte> ret;
-		byte* pASM = (byte*)pDissassembly->GetBufferPointer();
-		for (size_t i = 0; i < pDissassembly->GetBufferSize(); i++) {
-			ret.push_back(pASM[i]);
-		}
-		return ret;
-		*/
 	}
-	/*
-	else {
-		ComPtr<IDxcCompiler3> pCompiler;
-		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(pCompiler.GetAddressOf()));
-		DxcBuffer buf = {};
-		buf.Encoding = CP_ACP;
-		buf.Ptr = buffer.data();
-		buf.Size = buffer.size();
-		ComPtr<IDxcResult> pRes;
-		HRESULT hr = pCompiler->Disassemble(&buf, IID_PPV_ARGS(pRes.GetAddressOf()));
-		vector<byte> ret;
-		if (hr == S_OK) {
-			ComPtr<IDxcBlob> pBlob;
-			pRes->GetResult(pBlob.GetAddressOf());
-			byte* pASM = (byte*)pBlob->GetBufferPointer();
-			for (size_t i = 0; i < pBlob->GetBufferSize(); i++) {
-				ret.push_back(pASM[i]);
-			}
-		}
-		return ret;
-	}
-	*/
+
 	byte fourcc[4];
 	DWORD fHash[4];
 	DWORD one;
@@ -2361,27 +2332,7 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	vector<byte> ret;
 	if (asmFile.size() == 0)
 		return ret;
-	/*
-	if (asmFile[0] == ';') {
-		ComPtr<IDxcUtils> pUtils;
-		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(pUtils.GetAddressOf()));
-		ComPtr<IDxcAssembler> pAssembler;
-		DxcCreateInstance(CLSID_DxcAssembler, IID_PPV_ARGS(pAssembler.GetAddressOf()));
-		ComPtr<IDxcBlobEncoding> pSource;
-		pUtils->CreateBlob(asmFile.data(), asmFile.size(), CP_ACP, pSource.GetAddressOf());
-		ComPtr<IDxcOperationResult> pRes;
-		HRESULT hr = pAssembler->AssembleToContainer(pSource.Get(), pRes.GetAddressOf());
-		if (hr == S_OK) {
-			ComPtr<IDxcBlob> pBlob;
-			pRes->GetResult(pBlob.GetAddressOf());
-			byte* pASM = (byte*)pBlob->GetBufferPointer();
-			for (size_t i = 0; i < pBlob->GetBufferSize(); i++) {
-				ret.push_back(pASM[i]);
-			}
-		}
-		return ret;
-	}
-	*/
+
 	byte fourcc[4];
 	DWORD fHash[4];
 	DWORD one;

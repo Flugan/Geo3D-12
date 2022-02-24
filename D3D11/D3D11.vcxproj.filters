@@ -26,7 +26,7 @@
     <ClCompile Include="proxy11dll.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\D3D_Shaders\Assembler.cpp">
+    <ClCompile Include="..\D3D_Shaders\AssemblerNoDXIL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
