@@ -291,14 +291,6 @@ vector<byte> disassembler(vector<byte> buffer) {
 	if (hr == S_OK) {
 		asmBuffer = (char*)pDissassembly->GetBufferPointer();
 		asmSize = pDissassembly->GetBufferSize();
-		/*
-		vector<byte> ret;
-		byte* pASM = (byte*)pDissassembly->GetBufferPointer();
-		for (size_t i = 0; i < pDissassembly->GetBufferSize(); i++) {
-			ret.push_back(pASM[i]);
-		}
-		return ret;
-		*/
 	}
 	else {
 		ComPtr<IDxcCompiler3> pCompiler;
