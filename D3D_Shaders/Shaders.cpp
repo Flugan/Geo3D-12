@@ -83,7 +83,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		else {
 			valid = false;
 		}
-		/*
 		if (ASM[0] == ';') {
 			string ASMfilename = fileName;
 			ASMfilename.erase(fileName.size() - 3, 3);
@@ -101,7 +100,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			fwrite(ASM.data(), 1, ASM.size(), f);
 			fclose(f);
 		}
-
+		/*
 		fileName.erase(fileName.size() - 3, 3);
 		fileName.append("fail.txt");
 		if (!valid) {

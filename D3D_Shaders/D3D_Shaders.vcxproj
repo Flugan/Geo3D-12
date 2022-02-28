@@ -183,7 +183,9 @@
     <ClCompile Include="Shaders.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="dxil.txt" />
     <Text Include="gamelist.txt" />
+    <Text Include="test.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
