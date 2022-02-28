@@ -423,6 +423,21 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		PSOmap[pso.Neutral] = pso;
 		return hr;
 	}
+	else if ((stream64[0] & 0xF) == 1 &&
+		(stream64[3] & 0xF) == 2 &&
+		(stream64[6] & 0xF) == 3 &&
+		(stream64[9] & 0xF) == 4 &&
+		(stream64[12] & 0xF) == 5) {
+		vsOffset = 0;
+		vsPtr = (void*)stream64[vsOffset + 1];
+		vsSize = stream64[vsOffset + 2];
+		crc = fnv_64_buf(vsPtr, vsSize);
+		dumpShader("vs", vsPtr, vsSize);
+		dumpShader("ps", (void*)stream64[4], stream64[5]);
+		dumpShader("ds", (void*)stream64[7], stream64[8]);
+		dumpShader("gs", (void*)stream64[10], stream64[11]);
+		dumpShader("hs", (void*)stream64[13], stream64[14]);
+	}
 	else if ((stream64[8] & 0xF) == 1 && 
 			(stream64[25] & 0xF) == 2 &&
 			(stream64[22] & 0xF) == 3 &&
