@@ -1,8 +1,5 @@
 #include "stdafx.h"
 #include "dxcapi.h"
-#include "wrl.h"
-
-using Microsoft::WRL::ComPtr;
 
 FILE* failFile = NULL;
 static map<string, vector<DWORD>> codeBin;
