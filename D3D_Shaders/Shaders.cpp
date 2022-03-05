@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 
+CRITICAL_SECTION gl_CS;
+
 vector<string> enumerateFiles(string pathName, string filter = "") {
 	vector<string> files;
 	WIN32_FIND_DATAA FindFileData;
@@ -40,6 +42,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	int i = 5 + 5;
 	*/
+	InitializeCriticalSection(&gl_CS);
 	vector<string> lines;
 	fopen_s(&f, "gamelist.txt", "rb");
 	if (f) {
@@ -68,7 +71,9 @@ int _tmain(int argc, _TCHAR* argv[])
 #pragma omp for
 	for (int i = 0; i < files.size(); i++) {
 		string fileName = files[i];
+		EnterCriticalSection(&gl_CS);
 		auto BIN = readFile(fileName);
+		LeaveCriticalSection(&gl_CS);
 		auto ASM = disassembler(BIN);
 		vector<byte> CBO = assembler(ASM, BIN);
 		bool valid = true;
@@ -83,22 +88,36 @@ int _tmain(int argc, _TCHAR* argv[])
 		else {
 			valid = false;
 		}
+		if (ASM.size() == 0) {
+			string ASMfilename = fileName;
+			ASMfilename.erase(fileName.size() - 3, 3);
+			ASMfilename.append("error.txt");
+			fopen_s(&f, ASMfilename.c_str(), "wb");
+			fwrite(ASM.data(), 1, ASM.size(), f);
+			fclose(f);
+			continue;
+		}
 		if (ASM[0] == ';') {
 			string ASMfilename = fileName;
 			ASMfilename.erase(fileName.size() - 3, 3);
 			ASMfilename.append("dxil.txt");
+			EnterCriticalSection(&gl_CS);
 			fopen_s(&f, ASMfilename.c_str(), "wb");
 			fwrite(ASM.data(), 1, ASM.size(), f);
 			fclose(f);
+			LeaveCriticalSection(&gl_CS);
 			continue;
 		}
 		else {
 			string ASMfilename = fileName;
 			ASMfilename.erase(fileName.size() - 3, 3);
 			ASMfilename.append("txt");
+			EnterCriticalSection(&gl_CS);
 			fopen_s(&f, ASMfilename.c_str(), "wb");
 			fwrite(ASM.data(), 1, ASM.size(), f);
 			fclose(f);
+			LeaveCriticalSection(&gl_CS);
+			continue;
 		}
 		/*
 		fileName.erase(fileName.size() - 3, 3);
