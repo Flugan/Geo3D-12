@@ -1,10 +1,22 @@
 // proxydll.h
 #pragma once
+typedef void(STDMETHODCALLTYPE* D3D12CQ_ECL)(ID3D12CommandQueue* This, UINT NumCommandLists, ID3D12CommandList* const* ppCommandLists);
+static struct {
+	SIZE_T nHookId;
+	D3D12CQ_ECL fn;
+} sExecuteCommandLists_Hook = { 0, NULL };
+
 typedef void(STDMETHODCALLTYPE* D3D12CL_SPS)(ID3D12GraphicsCommandList* This, ID3D12PipelineState* pPipelineState);
 static struct {
 	SIZE_T nHookId;
 	D3D12CL_SPS fn;
 } sSetPipelineState_Hook = { 0, NULL };
+
+typedef HRESULT(STDMETHODCALLTYPE* D3D12_CCQ)(ID3D12Device* This, const D3D12_COMMAND_QUEUE_DESC* pDesc, REFIID riid, void** ppCommandQueue);
+static struct {
+	SIZE_T nHookId;
+	D3D12_CCQ fn;
+} sCreateCommandQueue_Hook = { 0, NULL };
 
 typedef HRESULT(STDMETHODCALLTYPE* D3D12_CCL)(ID3D12Device* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator* pCommandAllocator, ID3D12PipelineState* pInitialState, REFIID riid, void** ppCommandList);
 static struct {

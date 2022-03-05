@@ -9,9 +9,9 @@
 #pragma data_seg (".d3d12_shared")
 HINSTANCE			gl_hInstDLL = NULL;
 HINSTANCE           gl_hOriginalDll = NULL;
-bool				gl_hookedDevice = false;
-bool				gl_SwapChain_hooked = false;
-bool				gl_SwapChain1_hooked = false;
+UINT64				gl_Device_hooked = 0;
+UINT64				gl_SwapChain_hooked = 0;
+UINT64				gl_GraphicsCommandQueue_hooked = 0;
 UINT64				gl_GraphicsCommandList_hooked = 0;
 UINT64				gl_GraphicsCommandList1_hooked = 0;
 bool				gl_left = true;
@@ -22,7 +22,7 @@ bool				gl_dumpASM = false;
 bool				gl_debugAttach = false;
 string				sep = "0.1";
 string				conv = "1.0";
-int					gl_numBbackBuffers;
+int					gl_numBackBuffers;
 CNktHookLib			cHookMgr;
 #pragma data_seg ()
 
@@ -237,6 +237,7 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 }
 #pragma endregion
 
+#pragma region PipelineState
 string changeASM(vector<byte> ASM, bool left) {
 	auto lines = stringToLines((char*)ASM.data(), ASM.size());
 	string shaderL;
@@ -320,6 +321,7 @@ string changeASM(vector<byte> ASM, bool left) {
 }
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	LogInfo("CreateGraphicsPipelineState\n");
 	HRESULT hr;
 	UINT64 crc = fnv_64_buf(pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
 	dumpShader("vs", pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
@@ -395,6 +397,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 }
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
+	LogInfo("CreateComputePipelineState\n");
 	dumpShader("cs", pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
 	HRESULT hr = sCreateComputePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 	PSO pso = {};
@@ -406,6 +409,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, c
 }
 
 HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D3D12_PIPELINE_STATE_STREAM_DESC* pDesc, REFIID riid, void** ppPipelineState) {
+	LogInfo("CreatePipelineState\n");
 	HRESULT hr;
 	DWORD64* stream64 = (DWORD64*)pDesc->pPipelineStateSubobjectStream;
 	UINT64 crc = 0;
@@ -604,6 +608,24 @@ void D3D12CL_SetPipelineState(ID3D12GraphicsCommandList* This, ID3D12PipelineSta
 		sSetPipelineState_Hook.fn(This, pPipelineState);
 	}
 }
+#pragma endregion
+
+void D3D12CQ_ExecuteCommandLists(ID3D12CommandQueue* This, UINT NumCommandLists, ID3D12CommandList* const* ppCommandLists) {
+	LogInfo("ExecuteCommandLists\n");
+	sExecuteCommandLists_Hook.fn(This, NumCommandLists, ppCommandLists);
+}
+
+HRESULT D3D12_CreateCommandQueue(ID3D12Device* This, const D3D12_COMMAND_QUEUE_DESC* pDesc, REFIID riid, void** ppCommandQueue) {
+	HRESULT hr = sCreateCommandQueue_Hook.fn(This, pDesc, riid, ppCommandQueue);
+	if (++gl_GraphicsCommandQueue_hooked == 1) {
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppCommandQueue;
+
+		D3D12CQ_ECL origECL = (D3D12CQ_ECL)(*vTable)[10];
+		cHookMgr.Hook(&(sExecuteCommandLists_Hook.nHookId), (LPVOID*)&(sExecuteCommandLists_Hook.fn), origECL, D3D12CQ_ExecuteCommandLists);
+	}
+	LogInfo("CreateCommandQueue: %d\n", pDesc->Type);
+	return hr;
+}
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList(ID3D12Device* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator* pCommandAllocator, ID3D12PipelineState* pInitialState, REFIID riid, void** ppCommandList) {
 	HRESULT hr = sCreateCommandList_Hook.fn(This, nodeMask, type, pCommandAllocator, pInitialState, riid, ppCommandList);
@@ -612,7 +634,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList(ID3D12Device* This, UINT nodeM
 
 		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
 		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
-		LogInfo("Hooking CreateCommandList: %016llX\n", (UINT64)origSPS);
 	}
 	LogInfo("CreateCommandList\n");
 	return hr;
@@ -620,20 +641,19 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList(ID3D12Device* This, UINT nodeM
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList1(ID3D12Device4* This, UINT nodeMask, D3D12_COMMAND_LIST_TYPE type, D3D12_COMMAND_LIST_FLAGS flags, REFIID riid, void** ppCommandList) {
 	HRESULT hr = sCreateCommandList1_Hook.fn(This, nodeMask, type, flags, riid, ppCommandList);
-	if (++gl_GraphicsCommandList1_hooked == 1) {
+	if (++gl_GraphicsCommandList_hooked == 1) {
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppCommandList;
 
 		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
 		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
-		LogInfo("Hooking CreateCommandList1: %016llX\n", (UINT64)origSPS);
 	}
-	LogInfo("CreateCommandList\n");
+	LogInfo("CreateCommandList1\n");
 	return hr;
 }
-#pragma endregion
 
 #pragma region DXGI
 void beforePresent() {
+
 	gl_left = !gl_left;
 }
 
@@ -651,26 +671,26 @@ HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterva
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
 	LogInfo("CreateSwapChain\n");
-	gl_numBbackBuffers = pDesc->BufferCount;
+	gl_numBackBuffers = pDesc->BufferCount;
 	HRESULT hr = sCreateSwapChain_Hook.fn(This, pDevice, pDesc, ppSwapChain);
-	if (!gl_SwapChain_hooked) {
+	if (++gl_SwapChain_hooked == 1) {
 		LogInfo("SwapChain hooked\n");
-		gl_SwapChain_hooked = true;
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
 		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fnDXGI_Present), origPresent, DXGIH_Present);
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fnDXGI_Present1), origPresent1, DXGIH_Present1);
 	}
 	return hr;
 }
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
 	LogInfo("CreateSwapChainForHWND\n");
-	gl_numBbackBuffers = pDesc->BufferCount;
+	gl_numBackBuffers = pDesc->BufferCount;
 	HRESULT hr = sCreateSwapChainForHWND_Hook.fn(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
-	if (!gl_SwapChain1_hooked) {
-		LogInfo("SwapChain1 hooked\n");
-		gl_SwapChain1_hooked = true;
+	if (++gl_SwapChain_hooked == 1) {
+		LogInfo("SwapChain hooked\n");
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
@@ -683,11 +703,13 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnkn
 #pragma endregion
 
 void hookDevice(void** ppDevice) {
-	if (!gl_hookedDevice) {
+	if (++gl_Device_hooked == 1) {
 		LogInfo("Hooking device\n");
 
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppDevice;
 		
+		D3D12_CCQ origCCQ = (D3D12_CCQ)(*vTable)[8];
+		cHookMgr.Hook(&(sCreateCommandQueue_Hook.nHookId), (LPVOID*)&(sCreateCommandQueue_Hook.fn), origCCQ, D3D12_CreateCommandQueue);
 		D3D12_CGPS origCGPS = (D3D12_CGPS)(*vTable)[10];
 		cHookMgr.Hook(&(sCreateGraphicsPipelineState_Hook.nHookId), (LPVOID*)&(sCreateGraphicsPipelineState_Hook.fn), origCGPS, D3D12_CreateGraphicsPipelineState);
 		D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
@@ -699,21 +721,14 @@ void hookDevice(void** ppDevice) {
 		D3D12_CCL1 origCCL1 = (D3D12_CCL1)(*vTable)[51];
 		cHookMgr.Hook(&(sCreateCommandList1_Hook.nHookId), (LPVOID*)&(sCreateCommandList1_Hook.fn), origCCL1, D3D12_CreateCommandList1);
 
-		IDXGIFactory1* pFactory1;
-		HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&pFactory1));
-		vTable = (DWORD_PTR***)pFactory1;
+		IDXGIFactory2* pFactory2;
+		HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
+		vTable = (DWORD_PTR***)pFactory2;
 		DXGI_CSC origCSC = (DXGI_CSC)(*vTable)[10];
 		cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fn), origCSC, DXGI_CreateSwapChain);
-		pFactory1->Release();
-
-		IDXGIFactory2* pFactory2;
-		hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
-		vTable = (DWORD_PTR***)pFactory2;
 		DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
 		cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fn), origCSCFH, DXGI_CreateSwapChainForHWND);
 		pFactory2->Release();
-		
-		gl_hookedDevice = true;
 	}
 }
 

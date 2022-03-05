@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <Text Include="ID3D12CommandQueueVtbl.txt" />
     <Text Include="ID3D12DeviceVtbl.txt" />
     <Text Include="ID3D12GraphicsCommandListVtbl.txt" />
     <Text Include="IDXGIFactoryVtbl.txt" />

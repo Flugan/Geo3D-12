@@ -27,6 +27,9 @@
     <Text Include="ID3D12GraphicsCommandListVtbl.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="ID3D12CommandQueueVtbl.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="d3d12.cpp">
