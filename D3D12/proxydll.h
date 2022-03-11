@@ -51,7 +51,7 @@ static struct {
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_Present)(IDXGISwapChain* This, UINT SyncInterval, UINT Flags);
 static struct {
 	SIZE_T nHookId;
-	DXGI_Present fnDXGI_Present;
+	DXGI_Present fn;
 } sDXGI_Present_Hook = { 0, NULL };
 
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSC)(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain);
@@ -63,7 +63,7 @@ static struct {
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_Present1)(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters);
 static struct {
 	SIZE_T nHookId;
-	DXGI_Present1 fnDXGI_Present1;
+	DXGI_Present1 fn;
 } sDXGI_Present1_Hook = { 0, NULL };
 
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSCFH)(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pFullscreenDesc, IDXGIOutput *pRestrictToOutput, IDXGISwapChain1** ppSwapChain);

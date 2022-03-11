@@ -653,20 +653,19 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList1(ID3D12Device4* This, UINT nod
 
 #pragma region DXGI
 void beforePresent() {
-
 	gl_left = !gl_left;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIH_Present(IDXGISwapChain* This, UINT SyncInterval, UINT Flags) {
 	beforePresent();
 	LogInfo("Present\n");
-	return sDXGI_Present_Hook.fnDXGI_Present(This, SyncInterval, Flags);
+	return sDXGI_Present_Hook.fn(This, SyncInterval, Flags);
 }
 
 HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters) {
 	beforePresent();
 	LogInfo("Present1\n");
-	return sDXGI_Present1_Hook.fnDXGI_Present1(This, SyncInterval, Flags, pPresentParameters);
+	return sDXGI_Present1_Hook.fn(This, SyncInterval, Flags, pPresentParameters);
 }
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
@@ -678,9 +677,9 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pD
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
-		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fnDXGI_Present), origPresent, DXGIH_Present);
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
 		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
-		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fnDXGI_Present1), origPresent1, DXGIH_Present1);
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
 	}
 	return hr;
 }
@@ -694,9 +693,9 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnkn
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
-		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fnDXGI_Present), origPresent, DXGIH_Present);
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
 		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
-		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fnDXGI_Present1), origPresent1, DXGIH_Present1);
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
 	}
 	return hr;
 }
