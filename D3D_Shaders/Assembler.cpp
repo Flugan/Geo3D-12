@@ -94,9 +94,9 @@ string convertF(DWORD original, const char* lit) {
 	string sLiteral(buf);
 	
 	DWORD newDWORD = strToDWORD(sLiteral);
-	if (failFile == NULL)
-		fopen_s(&failFile, "debug.txt", "wb");
 	if (newDWORD != original) {
+		if (failFile == NULL)
+			fopen_s(&failFile, "debug.txt", "wb");
 		FILE* f = failFile;
 		if (f != 0) {
 			fprintf(f, "orig: %s <> %08X\n", lit, original);
