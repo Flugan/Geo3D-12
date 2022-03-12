@@ -1,7 +1,6 @@
 // proxydll.cpp
 #include "stdafx.h"
 #include "proxydll.h"
-#include "resource.h"
 #include "..\log.h"
 #include "..\Nektra\NktHookLib.h"
 
@@ -42,39 +41,6 @@ static UINT64 fnv_64_buf(const void* buf, size_t len)
 		hval ^= (UINT64)*bp++;
 	}
 	return hval;
-}
-
-void ShowStartupScreen()
-{
-	BOOL affinity = -1;
-	DWORD_PTR one = 0x01;
-	DWORD_PTR before = 0;
-	DWORD_PTR before2 = 0;
-	affinity = GetProcessAffinityMask(GetCurrentProcess(), &before, &before2);
-	affinity = SetProcessAffinityMask(GetCurrentProcess(), one);
-	HBITMAP hBM = ::LoadBitmap(gl_hInstDLL, MAKEINTRESOURCE(IDB_STARTUP));
-	if (hBM) {
-		HDC hDC = ::GetDC(NULL);
-		if (hDC) {
-			int iXPos = (::GetDeviceCaps(hDC, HORZRES) / 2) - (128 / 2);
-			int iYPos = (::GetDeviceCaps(hDC, VERTRES) / 2) - (128 / 2);
-
-			// paint the "GPP active" sign on desktop
-			HDC hMemDC = ::CreateCompatibleDC(hDC);
-			HBITMAP hBMold = (HBITMAP) ::SelectObject(hMemDC, hBM);
-			::BitBlt(hDC, iXPos, iYPos, 128, 128, hMemDC, 0, 0, SRCCOPY);
-
-			//Cleanup
-			::SelectObject(hMemDC, hBMold);
-			::DeleteDC(hMemDC);
-			::ReleaseDC(NULL, hDC);
-
-			// Wait before proceeding
-			::Beep(440, 1000);
-		}
-		::DeleteObject(hBM);
-	}
-	affinity = SetProcessAffinityMask(GetCurrentProcess(), before);
 }
 
 void ExitInstance()
@@ -132,7 +98,6 @@ BOOL WINAPI DllMain(
 		LogInfo("convergence: %s\n", conv.c_str());
 		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
 		LogInfo("Original d3d12.dll loaded:\n");
-		ShowStartupScreen();
 		if (gl_debugAttach) {
 			LogInfo("Waiting for debug attatch\n");
 			do {
