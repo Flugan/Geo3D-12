@@ -11,7 +11,7 @@ string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
 	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff, 
-		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000 };
+		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000 };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
