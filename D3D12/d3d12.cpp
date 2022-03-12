@@ -611,7 +611,7 @@ void D3D12CL_SetPipelineState(ID3D12GraphicsCommandList* This, ID3D12PipelineSta
 #pragma endregion
 
 void D3D12CQ_ExecuteCommandLists(ID3D12CommandQueue* This, UINT NumCommandLists, ID3D12CommandList* const* ppCommandLists) {
-	LogInfo("ExecuteCommandLists\n");
+	LogInfo("ExecuteCommandLists: %d\n", NumCommandLists);
 	sExecuteCommandLists_Hook.fn(This, NumCommandLists, ppCommandLists);
 }
 
@@ -635,7 +635,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList(ID3D12Device* This, UINT nodeM
 		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
 		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
 	}
-	LogInfo("CreateCommandList\n");
+	LogInfo("CreateCommandList: %d\n", type);
 	return hr;
 }
 
@@ -647,7 +647,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList1(ID3D12Device4* This, UINT nod
 		D3D12CL_SPS origSPS = (D3D12CL_SPS)(*vTable)[25];
 		cHookMgr.Hook(&(sSetPipelineState_Hook.nHookId), (LPVOID*)&(sSetPipelineState_Hook.fn), origSPS, D3D12CL_SetPipelineState);
 	}
-	LogInfo("CreateCommandList1\n");
+	LogInfo("CreateCommandList1: %d\n", type);
 	return hr;
 }
 
