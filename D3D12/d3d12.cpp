@@ -87,23 +87,15 @@ BOOL WINAPI DllMain(
 	switch (fdwReason) {
 	case DLL_PROCESS_ATTACH:
 		gl_hInstDLL = hinst;
+		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
 		CreateDirectory("C:\\Flugan", NULL);
 		readINI();
 		if (gl_log) {
 			LogFile = _fsopen("c:\\Flugan\\d3d12.log.txt", "w", _SH_DENYNO);
-			setvbuf(LogFile, NULL, _IONBF, 0);
 		}
 		LogInfo("Project Flugan loaded:\n");
 		LogInfo("separation: %s\n", sep.c_str());
 		LogInfo("convergence: %s\n", conv.c_str());
-		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
-		LogInfo("Original d3d12.dll loaded:\n");
-		if (gl_debugAttach) {
-			LogInfo("Waiting for debug attatch\n");
-			do {
-				Sleep(250);
-			} while (!IsDebuggerPresent());
-		}
 		break;
 
 	case DLL_PROCESS_DETACH:
