@@ -10,8 +10,8 @@ static map<string, vector<DWORD>> codeBin;
 string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
-	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff, 
-		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000 };
+	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff,  0xffecc800, 0x7fffff00, 0x7fff7fff, 0x7fffe000,
+		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000, 0x7fffc000 };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
