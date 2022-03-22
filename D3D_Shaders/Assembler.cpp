@@ -108,8 +108,9 @@ string convertF(DWORD original, const char* lit) {
 }
 
 void writeLUT() {
-	FILE* f;
-	fopen_s(&f, "lut.asm", "wb");
+	FILE* f = NULL;
+	if (!codeBin.empty())
+		fopen_s(&f, "lut.asm", "wb");
 	if (f != 0) {
 		for (auto it = codeBin.begin(); it != codeBin.end(); ++it) {
 			::fputs(it->first.c_str(), f);
