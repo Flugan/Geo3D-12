@@ -19,10 +19,14 @@ bool				gl_log = false;
 bool				gl_dumpBin = false;
 bool				gl_dumpASM = false;
 bool				gl_debugAttach = false;
-string				sep = "0.1";
-string				conv = "1.0";
-int					gl_numBackBuffers;
+char				cwd[MAX_PATH];
 CNktHookLib			cHookMgr;
+
+float gSep;
+float gConv;
+float gEyeDist;
+float gScreenSize;
+float gFinalSep;
 #pragma data_seg ()
 
 // 64 bit magic FNV-0 and FNV-1 prime
@@ -53,27 +57,49 @@ void ExitInstance()
 }
 
 void readINI() {
-	vector<byte> iniData = readFile("c:\\Flugan\\d3d12.ini");
-	vector<string> lines;
-	if (iniData.size() > 0) {
-		lines = stringToLines((char*)iniData.data(), iniData.size());
+	char setting[MAX_PATH];
+	char iniFile[MAX_PATH];
+	char LOGfile[MAX_PATH];
+
+	_getcwd(iniFile, MAX_PATH);
+	_getcwd(LOGfile, MAX_PATH);
+	_getcwd(cwd, MAX_PATH);
+	strcat_s(iniFile, MAX_PATH, "\\d3d12.ini");
+
+	// If specified in Debug section, wait for Attach to Debugger.
+	bool waitfordebugger = GetPrivateProfileInt("Debug", "attach", 0, iniFile) > 0;
+	if (waitfordebugger) {
+		do {
+			Sleep(250);
+		} while (!IsDebuggerPresent());
 	}
-	for (size_t i = 0; i < lines.size(); i++) {
-		string s = lines[i];
-		if (s.find("log") == 0)
-			gl_log = s[4] == '1';
-		if (s.find("asm") == 0)
-			gl_dumpASM = s[4] == '1';
-		if (s.find("bin") == 0)
-			gl_dumpBin = s[4] == '1';
 
-		if (s.find("attach") == 0)
-			gl_debugAttach = s[7] == '1';
+	gl_log = GetPrivateProfileInt("Dump", "log", gl_log, iniFile) > 0;
 
-		if (s.find("separation") == 0)
-			sep = s.substr(11);
-		if (s.find("convergence") == 0)
-			conv = s.substr(12);
+	gl_dumpBin = GetPrivateProfileInt("Dump", "bin", gl_dumpBin, iniFile) > 0;
+
+	gl_dumpBin = GetPrivateProfileInt("Dump", "asm", gl_dumpASM, iniFile) > 0;
+
+	if (GetPrivateProfileString("Stereo", "separation", "50", setting, MAX_PATH, iniFile)) {
+		gSep = stof(setting);
+	}
+	if (GetPrivateProfileString("Stereo", "convergence", "1.0", setting, MAX_PATH, iniFile)) {
+		gConv = stof(setting);
+	}
+	if (GetPrivateProfileString("Stereo", "eyedistance", "6.5", setting, MAX_PATH, iniFile)) {
+		gEyeDist = stof(setting);
+	}
+	if (GetPrivateProfileString("Stereo", "screenSize", "55", setting, MAX_PATH, iniFile)) {
+		gScreenSize = stof(setting);
+	}
+	float eyeSep = gEyeDist / (2.54f * gScreenSize * 16 / sqrtf(256 + 81));
+	gFinalSep = eyeSep * gSep * 0.01f;
+
+	if (gl_log) {
+		strcat_s(LOGfile, MAX_PATH, "\\d3d11_log.txt");
+		LogFile = _fsopen(LOGfile, "wb", _SH_DENYNO);
+		setvbuf(LogFile, NULL, _IONBF, 0);
+		LogInfo("Start Log:\n");
 	}
 }
 
@@ -88,14 +114,7 @@ BOOL WINAPI DllMain(
 	case DLL_PROCESS_ATTACH:
 		gl_hInstDLL = hinst;
 		gl_hOriginalDll = ::LoadLibrary("c:\\windows\\system32\\d3d12.dll");
-		CreateDirectory("C:\\Flugan", NULL);
 		readINI();
-		if (gl_log) {
-			LogFile = _fsopen("c:\\Flugan\\d3d12.log.txt", "w", _SH_DENYNO);
-		}
-		LogInfo("Project Flugan loaded:\n");
-		LogInfo("separation: %s\n", sep.c_str());
-		LogInfo("convergence: %s\n", conv.c_str());
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -134,8 +153,11 @@ void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0
 			UINT64 crc = fnv_64_buf(pData, length);
 			if (crc2 != 0)
 				crc = crc2;
-			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
-			sprintf_s(path, MAX_PATH, "c:\\Flugan\\ShaderCache\\%016llX-%s.txt", crc, type);
+			strcat_s(path, MAX_PATH, cwd);
+			strcat_s(path, MAX_PATH, "\\ShaderCache");
+			CreateDirectory(path, NULL);
+			string sPath(path);
+			sprintf_s(path, MAX_PATH, (sPath + "\\%016llX-%s.txt").c_str(), crc, type);
 			LogInfo("Dump RAW: %s\n", path);
 			if (!fileExists(path)) {
 				fopen_s(&f, path, "wb");
@@ -157,8 +179,11 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 			UINT64 crc = fnv_64_buf(pData, length);
 			if (crc2 != 0)
 				crc = crc2;
-			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
-			sprintf_s(path, MAX_PATH, "c:\\Flugan\\ShaderCache\\%016llX-%s.bin", crc, type);
+			strcat_s(path, MAX_PATH, cwd);
+			strcat_s(path, MAX_PATH, "\\ShaderCache");
+			CreateDirectory(path, NULL);
+			string sPath(path);
+			sprintf_s(path, MAX_PATH, (sPath + "\\%016llX-%s.bin").c_str(), crc, type);
 			LogInfo("Dump BIN: %s\n", path);
 			if (!fileExists(path)) {
 				fopen_s(&f, path, "wb");
@@ -172,8 +197,11 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 			UINT64 crc = fnv_64_buf(pData, length);
 			if (crc2 != 0)
 				crc = crc2;
-			CreateDirectory("C:\\Flugan\\ShaderCache", NULL);
-			sprintf_s(path, MAX_PATH, "C:\\Flugan\\ShaderCache\\%016llX-%s.txt", crc, type);
+			strcat_s(path, MAX_PATH, cwd);
+			strcat_s(path, MAX_PATH, "\\ShaderCache");
+			CreateDirectory(path, NULL);
+			string sPath(path);
+			sprintf_s(path, MAX_PATH, (sPath + "\\%016llX-%s.txt").c_str(), crc, type);
 			LogInfo("Dump ASM: %s\n", path);
 			if (!fileExists(path)) {
 				vector<byte> v;
@@ -232,6 +260,12 @@ string changeASM(vector<byte> ASM, bool left) {
 		else if (dcl == true) {
 			// after dcl
 			if (s.find("ret") < s.size()) {
+				char buf[80];
+				sprintf_s(buf, 80, "%.8f", gFinalSep);
+				string sep(buf);
+				sprintf_s(buf, 80, "%.3f", gConv);
+				string conv(buf);
+
 				string changeSep = left ? "l(-" + sep + ")" : "l(" + sep + ")";
 				shader +=
 					"eq r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(1.0)\n" +
@@ -627,7 +661,6 @@ HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterva
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
 	LogInfo("CreateSwapChain\n");
-	gl_numBackBuffers = pDesc->BufferCount;
 	HRESULT hr = sCreateSwapChain_Hook.fn(This, pDevice, pDesc, ppSwapChain);
 	if (++gl_SwapChain_hooked == 1) {
 		LogInfo("SwapChain hooked\n");
@@ -643,7 +676,6 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pD
 
 HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
 	LogInfo("CreateSwapChainForHWND\n");
-	gl_numBackBuffers = pDesc->BufferCount;
 	HRESULT hr = sCreateSwapChainForHWND_Hook.fn(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
 	if (++gl_SwapChain_hooked == 1) {
 		LogInfo("SwapChain hooked\n");
