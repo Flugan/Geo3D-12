@@ -86,7 +86,7 @@ void readINI() {
 	if (GetPrivateProfileString("Stereo", "convergence", "1.0", setting, MAX_PATH, iniFile)) {
 		gConv = stof(setting);
 	}
-	if (GetPrivateProfileString("Stereo", "eyedistance", "6.5", setting, MAX_PATH, iniFile)) {
+	if (GetPrivateProfileString("Stereo", "eyedistance", "6.3", setting, MAX_PATH, iniFile)) {
 		gEyeDist = stof(setting);
 	}
 	if (GetPrivateProfileString("Stereo", "screenSize", "55", setting, MAX_PATH, iniFile)) {
