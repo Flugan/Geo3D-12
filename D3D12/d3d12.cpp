@@ -78,7 +78,7 @@ void readINI() {
 
 	gl_dumpBin = GetPrivateProfileInt("Dump", "bin", gl_dumpBin, iniFile) > 0;
 
-	gl_dumpBin = GetPrivateProfileInt("Dump", "asm", gl_dumpASM, iniFile) > 0;
+	gl_dumpASM = GetPrivateProfileInt("Dump", "asm", gl_dumpASM, iniFile) > 0;
 
 	if (GetPrivateProfileString("Stereo", "separation", "50", setting, MAX_PATH, iniFile)) {
 		gSep = stof(setting);
@@ -96,7 +96,7 @@ void readINI() {
 	gFinalSep = eyeSep * gSep * 0.01f;
 
 	if (gl_log) {
-		strcat_s(LOGfile, MAX_PATH, "\\d3d11_log.txt");
+		strcat_s(LOGfile, MAX_PATH, "\\d3d12_log.txt");
 		LogFile = _fsopen(LOGfile, "wb", _SH_DENYNO);
 		setvbuf(LogFile, NULL, _IONBF, 0);
 		LogInfo("Start Log:\n");
@@ -211,10 +211,12 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 				}
 				auto ASM = disassembler(v);
 
-				fopen_s(&f, path, "wb");
-				if (f != 0) {
-					fwrite(ASM.data(), 1, ASM.size(), f);
-					fclose(f);
+				if (ASM.size() > 0) {
+					fopen_s(&f, path, "wb");
+					if (f != 0) {
+						fwrite(ASM.data(), 1, ASM.size(), f);
+						fclose(f);
+					}
 				}
 			}
 		}
@@ -268,13 +270,9 @@ string changeASM(vector<byte> ASM, bool left) {
 
 				string changeSep = left ? "l(-" + sep + ")" : "l(" + sep + ")";
 				shader +=
-					"eq r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(1.0)\n" +
-					"if_z r" + to_string(temp - 2) + ".x\n"
 					"add r" + to_string(temp - 2) + ".x, r" + to_string(temp - 1) + ".w, l(-" + conv + ")\n" +
 					"mad r" + to_string(temp - 2) + ".x, r" + to_string(temp - 2) + ".x, " + changeSep + ", r" + to_string(temp - 1) + ".x\n" +
-					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n" +
-					"ret\n" + 
-					"endif\n";
+					"mov " + oReg + ".x, r" + to_string(temp - 2) + ".x\n";
 			}
 			if (oReg.size() == 0) {
 				// no output
@@ -320,6 +318,60 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	dumpShader("ds", pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
 	dumpShader("gs", pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
 	dumpShader("hs", pDesc->HS.pShaderBytecode, pDesc->HS.BytecodeLength);
+	// Removed due to Hellblade, ok solution for now
+	if (crc == 0xF66E2C466DD0C233)
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	/*
+	// Forza Horizon 4 testing
+	if (crc > 0xF000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0xE000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0xD000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0xC000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0xB000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0xA000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x9000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x8000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x7000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x6000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x5000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x4000000000000000) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x3000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x2000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else if (crc > 0x1000000000000000) {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	else {
+		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	*/
 
 	vector<byte> v;
 	byte* bArray = (byte*)pDesc->VS.pShaderBytecode;
@@ -327,7 +379,10 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 		v.push_back(bArray[i]);
 	}
 	vector<byte> ASM = disassembler(v);
-	if (ASM.size() == 0 || ASM[0] == ';') {
+	if (ASM.size() == 0) {
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
+	}
+	if (ASM[0] == ';') {
 		dumpShaderRAW("vsDXIL", ASM.data(), ASM.size(), crc);
 		HRESULT hr = sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 		PSO pso = {};
@@ -340,9 +395,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	else {
 		dumpShaderRAW("vsNormal", ASM.data(), ASM.size(), crc);
 	}
-	// Removed due to Hellblade, ok solutioin for now
-	if (crc == 0xF66E2C466DD0C233)
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 
 	string shaderL = changeASM(ASM, true);
 	string shaderR = changeASM(ASM, false);
@@ -703,11 +755,11 @@ void hookDevice(void** ppDevice) {
 		D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fn), origCCPS, D3D12_CreateComputePipelineState);
 		D3D12_CCL origCCL = (D3D12_CCL)(*vTable)[12];
-		cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
+		//cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
 		D3D12_CPS origCPS = (D3D12_CPS)(*vTable)[47];
 		cHookMgr.Hook(&(sCreatePipelineState_Hook.nHookId), (LPVOID*)&(sCreatePipelineState_Hook.fn), origCPS, D3D12_CreatePipelineState);
 		D3D12_CCL1 origCCL1 = (D3D12_CCL1)(*vTable)[51];
-		cHookMgr.Hook(&(sCreateCommandList1_Hook.nHookId), (LPVOID*)&(sCreateCommandList1_Hook.fn), origCCL1, D3D12_CreateCommandList1);
+		//cHookMgr.Hook(&(sCreateCommandList1_Hook.nHookId), (LPVOID*)&(sCreateCommandList1_Hook.fn), origCCL1, D3D12_CreateCommandList1);
 
 		IDXGIFactory2* pFactory2;
 		HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));

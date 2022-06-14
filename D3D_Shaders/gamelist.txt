@@ -1,13 +1,2 @@
-;Shader model 6
-c:\Flugan\Alan Wake Remastered\
-c:\Flugan\Cyberpunk 2077\
-c:\Flugan\Deathloop\
-c:\Flugan\Elden Ring\
-c:\Flugan\Far Cry 6\
-c:\Flugan\F1 2021\
-c:\Flugan\Horizon Zero Dawn\
-c:\Flugan\Marvel's Guardians of the Galaxy\
-c:\Flugan\Metro Exodus Enhanced Edition\
-c:\Flugan\Red Dead Redemption 2\
-c:\Flugan\Resident Evil Village\
-c:\Flugan\Star Wars Battlefront 2\
+;Shader model 5.1
+c:\Flugan\Forza Horizon 4\

@@ -5,6 +5,7 @@ c:\Flugan\Deathloop\
 c:\Flugan\Elden Ring\
 c:\Flugan\Far Cry 6\
 c:\Flugan\F1 2021\
+c:\Flugan\Forza Horizon 5\
 c:\Flugan\Horizon Zero Dawn\
 c:\Flugan\Marvel's Guardians of the Galaxy\
 c:\Flugan\Metro Exodus Enhanced Edition\
@@ -20,8 +21,11 @@ c:\Flugan\Battlefield 1\
 c:\Flugan\Battlefield V\
 c:\Flugan\BIOMUTANT\
 c:\Flugan\Borderlands 3\
+c:\Flugan\Breathedge\
 c:\Flugan\Bright Memory\
 c:\Flugan\Bright Memory Infinite\
+c:\Flugan\Chernobylite\
+c:\Flugan\Chorus\
 c:\Flugan\Control\
 c:\Flugan\Death Stranding\
 c:\Flugan\Deliver Us the Moon\
@@ -29,16 +33,19 @@ c:\Flugan\Delores\
 c:\Flugan\Deus Ex Breach\
 c:\Flugan\Deus Ex Mankind Divided\
 c:\Flugan\Devil May Cry 5\
+c:\Flugan\Dying Light 2\
 c:\Flugan\F1 2018\
 c:\Flugan\FIFA18\
 c:\Flugan\FIFA20\
 c:\Flugan\FIFA22\
 c:\Flugan\FIST\
+c:\Flugan\Forza Horizon 4\
 c:\Flugan\Ghostrunner\
 c:\Flugan\Godfall\
 c:\Flugan\hellblade\
 c:\Flugan\Hitman\
 c:\Flugan\HITMAN 2\
+c:\Flugan\It Takes Two\
 c:\Flugan\Kena Bridge of Spirits\
 c:\Flugan\Madden NFL 22\
 c:\Flugan\Metro Exodus\

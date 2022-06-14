@@ -11,7 +11,7 @@ string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	char buf2[80];
 	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff,  0xffecc800, 0x7fffff00, 0x7fff7fff, 0x7fffe000,
-		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000, 0x7fffc000 };
+		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000, 0x7fffc000, 0xfffe7960, 0xfffefffe };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
@@ -285,6 +285,7 @@ string assembleAndCompare(string s, vector<DWORD> v) {
 } 
 
 vector<byte> disassembler(vector<byte> buffer) {
+	vector<byte> ret;
 	char* asmBuffer = nullptr;
 	int asmSize = 0;
 	ID3DBlob* pDissassembly;
@@ -302,7 +303,6 @@ vector<byte> disassembler(vector<byte> buffer) {
 		buf.Size = buffer.size();
 		ComPtr<IDxcResult> pRes;
 		HRESULT hr = pCompiler->Disassemble(&buf, IID_PPV_ARGS(pRes.GetAddressOf()));
-		vector<byte> ret;
 		if (hr == S_OK) {
 			ComPtr<IDxcBlob> pBlob;
 			pRes->GetResult(pBlob.GetAddressOf());
@@ -323,6 +323,9 @@ vector<byte> disassembler(vector<byte> buffer) {
 
 	byte* pPosition = buffer.data();
 	std::memcpy(fourcc, pPosition, 4);
+	if (memcmp(fourcc, "DXBC", 4) != 0) {
+		return ret;
+	}
 	pPosition += 4;
 	std::memcpy(fHash, pPosition, 16);
 	pPosition += 16;
@@ -418,7 +421,6 @@ vector<byte> disassembler(vector<byte> buffer) {
 			}
 		}
 	}
-	vector<byte> ret;
 	for (size_t i = 0; i < lines.size(); i++) {
 		for (size_t j = 0; j < lines[i].size(); j++) {
 			ret.insert(ret.end(), lines[i][j]);
