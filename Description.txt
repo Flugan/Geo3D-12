@@ -1,0 +1,91 @@
+Date updated 2020-06-16
+
+d3d12.def:
+Defines all but 2 of the official D3D12.dll exported functions by name.
+The same functions will be found in d3d12.cpp and linked into wrapper dll.
+
+Assembler.cpp:
+A complex beast, defines:
+vector<byte> disassembler(vector<byte> buffer);
+vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer);
+vector<byte> readFile(string fileName);
+vector<string> stringToLines(const char* start, size_t size);
+handles both SM5.1 and SM6+ using different dxcompiler.dll path for DXIL management
+
+Shaders.cpp:
+Program scanning binary shaders from folders listed in gamelist.txt
+The more games in gamelist.txt the more potential assembler bugs can be found.
+Fewer games runs quicker.
+The assembler errors loose track of where they came from.
+Using openmp for heavily multithreading for quicker results.
+
+proxydll.h:
+Keeps all the typedefs and structs used for hooking using Nektra.
+
+stdafx.h:
+main header file
+uses namespace std!
+Defines PSO and PSOmap which tracks left and right ID3D12PipelineState!
+The game is unaware of there being two different PipelineStates and always uses the one we originally returned.
+
+*Vtbl.txt
+Timeconsuming to make but when it's done it lists all the functions in the vtable of the COM object.
+Vtable is zero indexed while line numbers start with 1 so you need to keep that in mind.
+Use msdn to get the exact function definition when hooking.
+
+d3d12.txt:
+With most of the code elsewhere this is compact and the real deal.
+
+region Exports is needed to handle wrapping dx12 dll and forward the call to the real dll.
+D3D12CreateDevice is where we hook the device if valid.
+NktHookLibHelpers is needed as there was previously a bug that caused a stack overflow due to infinite recursion.
+
+hookDevice:
+Hooks mainly the CreatePipelineState set of functions
+Also creates a DXGI Factory to setup hooks that later leads to hooking Present
+Also have the initial code to hook the Command Queue
+
+region DXGI:
+Hooks Present and Present swaps the eye between left and right
+
+SetPipelineState:
+Assigns the correct stereo pipeline if available.
+DXIL, NoOutput and ComputeShaders pass without stereo.
+Weird PipelineStates exists that are not created.
+
+CreatePipelineState is complex because pPipelineStateSubobjectStream needs to be recognized and it varies from game to game.
+D3D12_CreateComputePipelineState is straight forward
+D3D12_CreateGraphicsPipelineState handles all shaders but CS
+From this moment discussing Vertex Shaders:
+First Disassembled
+If that fails let the game deal with the shader instead
+If DXIL return as DXIL Neutral shader
+Apply changeASM which creates a stereo pair of shaders
+If that fails because of no Output register return as Neutral shader
+We now have left and right Vertex Shader
+Use the assembler on each and return the right PipelineState to the game which is later swapped to the left later on in SetPipelineState.
+
+changeASM:
+Very hard to understand it reads the shader line by line.
+Everything before dcl_* is just copied across.
+It's looking for dcl_output_siv to find the output register.
+It handles dcl_immediateConstantBuffer which has a lot of lines not starting with dcl_ before returning to dcl_
+It finds dcl_temps if it exists and adds 2 to the existing number.
+If no dcl_temps exists the last dcl_ line will be dcl_temps 2.
+If anything happens with the output register the same thing happens to one of our new temp registers.
+When ret occurs we calculate Out.x += Side * Separation * (Out.w - Convergence)
+
+readINI: reads d3d12.ini
+[Dump]
+;log=1
+;bin=1
+;asm=1
+
+[Stereo]
+convergence=1.0
+separation=50
+screenSize=55
+;eyedistance=6.3
+
+[Debug]
+;Attach=1
