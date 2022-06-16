@@ -48,26 +48,38 @@ static struct {
 	D3D12_CPS fn;
 } sCreatePipelineState_Hook = { 0, NULL };
 
+typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSC)(IDXGIFactory* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain);
+static struct {
+	SIZE_T nHookId;
+	DXGI_CSC fn;
+} sCreateSwapChain_Hook = { 0, NULL };
+
+typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSCFH)(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain);
+static struct {
+	SIZE_T nHookId;
+	DXGI_CSCFH fn;
+} sCreateSwapChainForHWND_Hook = { 0, NULL };
+
+typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSCFCW)(IDXGIFactory2* This, IUnknown* pDevice, IUnknown* pWindow, const DXGI_SWAP_CHAIN_DESC1* pDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain);
+static struct {
+	SIZE_T nHookId;
+	DXGI_CSCFCW fn;
+} sCreateSwapChainForCoreWindow_Hook = { 0, NULL };
+
+typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSCFC)(IDXGIFactory2* This, IUnknown* pDevice, const DXGI_SWAP_CHAIN_DESC1* pDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain);
+static struct {
+	SIZE_T nHookId;
+	DXGI_CSCFC fn;
+} sCreateSwapChainForComposition_Hook = { 0, NULL };
+
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_Present)(IDXGISwapChain* This, UINT SyncInterval, UINT Flags);
 static struct {
 	SIZE_T nHookId;
 	DXGI_Present fn;
 } sDXGI_Present_Hook = { 0, NULL };
 
-typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSC)(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain);
-static struct {
-	SIZE_T nHookId;
-	DXGI_CSC fn;
-} sCreateSwapChain_Hook = { 0, NULL };
-
 typedef HRESULT(STDMETHODCALLTYPE* DXGI_Present1)(IDXGISwapChain1* This, UINT SyncInterval, UINT Flags, const DXGI_PRESENT_PARAMETERS* pPresentParameters);
 static struct {
 	SIZE_T nHookId;
 	DXGI_Present1 fn;
 } sDXGI_Present1_Hook = { 0, NULL };
-
-typedef HRESULT(STDMETHODCALLTYPE* DXGI_CSCFH)(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pFullscreenDesc, IDXGIOutput *pRestrictToOutput, IDXGISwapChain1** ppSwapChain);
-static struct {
-	SIZE_T nHookId;
-	DXGI_CSCFH fn;
-} sCreateSwapChainForHWND_Hook = { 0, NULL };

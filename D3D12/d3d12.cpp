@@ -10,6 +10,7 @@ HINSTANCE			gl_hInstDLL = NULL;
 HINSTANCE           gl_hOriginalDll = NULL;
 UINT64				gl_Device_hooked = 0;
 UINT64				gl_SwapChain_hooked = 0;
+UINT64				gl_SwapChain1_hooked = 0;
 UINT64				gl_GraphicsCommandQueue_hooked = 0;
 UINT64				gl_GraphicsCommandList_hooked = 0;
 UINT64				gl_GraphicsCommandList1_hooked = 0;
@@ -711,11 +712,24 @@ HRESULT STDMETHODCALLTYPE DXGIH_Present1(IDXGISwapChain1* This, UINT SyncInterva
 	return sDXGI_Present1_Hook.fn(This, SyncInterval, Flags, pPresentParameters);
 }
 
-HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory* This, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
 	LogInfo("CreateSwapChain\n");
 	HRESULT hr = sCreateSwapChain_Hook.fn(This, pDevice, pDesc, ppSwapChain);
 	if (++gl_SwapChain_hooked == 1) {
 		LogInfo("SwapChain hooked\n");
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+
+		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
+	}
+	return hr;
+}
+
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
+	LogInfo("CreateSwapChainForHWND\n");
+	HRESULT hr = sCreateSwapChainForHWND_Hook.fn(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+	if (++gl_SwapChain1_hooked == 1) {
+		LogInfo("SwapChain1 hooked\n");
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
@@ -726,11 +740,26 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory1* This, IUnknown* pD
 	return hr;
 }
 
-HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
-	LogInfo("CreateSwapChainForHWND\n");
-	HRESULT hr = sCreateSwapChainForHWND_Hook.fn(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
-	if (++gl_SwapChain_hooked == 1) {
-		LogInfo("SwapChain hooked\n");
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForCoreWindow(IDXGIFactory2* This, IUnknown* pDevice, IUnknown* pWindow, const DXGI_SWAP_CHAIN_DESC1* pDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
+	LogInfo("CreateSwapChainForCoreWindow\n");
+	HRESULT hr = sCreateSwapChainForCoreWindow_Hook.fn(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+	if (++gl_SwapChain1_hooked == 1) {
+		LogInfo("SwapChain1 hooked\n");
+		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
+
+		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
+		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
+	}
+	return hr;
+}
+
+HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForComposition(IDXGIFactory2* This, IUnknown* pDevice, const DXGI_SWAP_CHAIN_DESC1* pDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
+	LogInfo("CreateSwapChainForComposition\n");
+	HRESULT hr = sCreateSwapChainForComposition_Hook.fn(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+	if (++gl_SwapChain1_hooked == 1) {
+		LogInfo("SwapChain1 hooked\n");
 		DWORD_PTR*** vTable = (DWORD_PTR***)*ppSwapChain;
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
@@ -768,6 +797,10 @@ void hookDevice(void** ppDevice) {
 		cHookMgr.Hook(&(sCreateSwapChain_Hook.nHookId), (LPVOID*)&(sCreateSwapChain_Hook.fn), origCSC, DXGI_CreateSwapChain);
 		DXGI_CSCFH origCSCFH = (DXGI_CSCFH)(*vTable)[15];
 		cHookMgr.Hook(&(sCreateSwapChainForHWND_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForHWND_Hook.fn), origCSCFH, DXGI_CreateSwapChainForHWND);
+		DXGI_CSCFCW origCSCFCW = (DXGI_CSCFCW)(*vTable)[16];
+		cHookMgr.Hook(&(sCreateSwapChainForCoreWindow_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForCoreWindow_Hook.fn), origCSCFCW, DXGI_CreateSwapChainForCoreWindow);
+		DXGI_CSCFC origCSCFC = (DXGI_CSCFC)(*vTable)[24];
+		cHookMgr.Hook(&(sCreateSwapChainForComposition_Hook.nHookId), (LPVOID*)&(sCreateSwapChainForComposition_Hook.fn), origCSCFC, DXGI_CreateSwapChainForComposition);
 		pFactory2->Release();
 	}
 }
