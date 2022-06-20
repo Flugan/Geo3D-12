@@ -784,11 +784,11 @@ void hookDevice(void** ppDevice) {
 		D3D12_CCPS origCCPS = (D3D12_CCPS)(*vTable)[11];
 		cHookMgr.Hook(&(sCreateComputePipelineState_Hook.nHookId), (LPVOID*)&(sCreateComputePipelineState_Hook.fn), origCCPS, D3D12_CreateComputePipelineState);
 		D3D12_CCL origCCL = (D3D12_CCL)(*vTable)[12];
-		//cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
+		cHookMgr.Hook(&(sCreateCommandList_Hook.nHookId), (LPVOID*)&(sCreateCommandList_Hook.fn), origCCL, D3D12_CreateCommandList);
 		D3D12_CPS origCPS = (D3D12_CPS)(*vTable)[47];
 		cHookMgr.Hook(&(sCreatePipelineState_Hook.nHookId), (LPVOID*)&(sCreatePipelineState_Hook.fn), origCPS, D3D12_CreatePipelineState);
 		D3D12_CCL1 origCCL1 = (D3D12_CCL1)(*vTable)[51];
-		//cHookMgr.Hook(&(sCreateCommandList1_Hook.nHookId), (LPVOID*)&(sCreateCommandList1_Hook.fn), origCCL1, D3D12_CreateCommandList1);
+		cHookMgr.Hook(&(sCreateCommandList1_Hook.nHookId), (LPVOID*)&(sCreateCommandList1_Hook.fn), origCCL1, D3D12_CreateCommandList1);
 
 		IDXGIFactory2* pFactory2;
 		HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory2));
