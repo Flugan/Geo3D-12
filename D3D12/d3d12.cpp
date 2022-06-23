@@ -322,57 +322,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	// Removed due to Hellblade, ok solution for now
 	if (crc == 0xF66E2C466DD0C233)
 		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	/*
-	// Forza Horizon 4 testing
-	if (crc > 0xF000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0xE000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0xD000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0xC000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0xB000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0xA000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x9000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x8000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x7000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x6000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x5000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x4000000000000000) {
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x3000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x2000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else if (crc > 0x1000000000000000) {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	else {
-		//return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
-	}
-	*/
 
 	vector<byte> v;
 	byte* bArray = (byte*)pDesc->VS.pShaderBytecode;
