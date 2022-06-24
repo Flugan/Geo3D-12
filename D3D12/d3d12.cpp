@@ -48,15 +48,6 @@ static UINT64 fnv_64_buf(const void* buf, size_t len)
 	return hval;
 }
 
-void ExitInstance()
-{
-	if (gl_hOriginalDll)
-	{
-		::FreeLibrary(gl_hOriginalDll);
-		gl_hOriginalDll = NULL;
-	}
-}
-
 void readINI() {
 	char setting[MAX_PATH];
 	char iniFile[MAX_PATH];
@@ -104,10 +95,7 @@ void readINI() {
 	}
 }
 
-BOOL WINAPI DllMain(
-	_In_  HINSTANCE hinst,
-	_In_  DWORD fdwReason,
-	_In_  LPVOID lpvReserved)
+BOOL WINAPI DllMain(HINSTANCE hinst, DWORD fdwReason, LPVOID lpvReserved)
 {
 	bool result = true;
 
@@ -119,7 +107,10 @@ BOOL WINAPI DllMain(
 		break;
 
 	case DLL_PROCESS_DETACH:
-		ExitInstance();
+		if (gl_hOriginalDll) {
+			::FreeLibrary(gl_hOriginalDll);
+			gl_hOriginalDll = NULL;
+		}
 		break;
 
 	case DLL_THREAD_ATTACH:
@@ -603,6 +594,7 @@ void D3D12CL_SetPipelineState(ID3D12GraphicsCommandList* This, ID3D12PipelineSta
 }
 #pragma endregion
 
+#pragma region Command
 void D3D12CQ_ExecuteCommandLists(ID3D12CommandQueue* This, UINT NumCommandLists, ID3D12CommandList* const* ppCommandLists) {
 	LogInfo("ExecuteCommandLists: %d\n", NumCommandLists);
 	sExecuteCommandLists_Hook.fn(This, NumCommandLists, ppCommandLists);
@@ -643,6 +635,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateCommandList1(ID3D12Device4* This, UINT nod
 	LogInfo("CreateCommandList1: %d\n", type);
 	return hr;
 }
+#pragma endregion
 
 #pragma region DXGI
 void beforePresent() {
