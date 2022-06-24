@@ -19,6 +19,7 @@ FILE*				LogFile = NULL;
 bool				gl_log = false;
 bool				gl_dumpBin = false;
 bool				gl_dumpASM = false;
+bool				gl_dumpRAW = false;
 bool				gl_debugAttach = false;
 char				cwd[MAX_PATH];
 CNktHookLib			cHookMgr;
@@ -69,6 +70,8 @@ void readINI() {
 	gl_log = GetPrivateProfileInt("Dump", "log", gl_log, iniFile) > 0;
 
 	gl_dumpBin = GetPrivateProfileInt("Dump", "bin", gl_dumpBin, iniFile) > 0;
+
+	gl_dumpRAW = GetPrivateProfileInt("Dump", "raw", gl_dumpRAW, iniFile) > 0;
 
 	gl_dumpASM = GetPrivateProfileInt("Dump", "asm", gl_dumpASM, iniFile) > 0;
 
@@ -136,15 +139,12 @@ int fileExists(TCHAR* file) {
 	return found;
 }
 
-void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
+void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc) {
 	FILE* f;
 	char path[MAX_PATH];
 	path[0] = 0;
 	if (length >= 0) {
-		if (gl_dumpBin) {
-			UINT64 crc = fnv_64_buf(pData, length);
-			if (crc2 != 0)
-				crc = crc2;
+		if (gl_dumpRAW) {
 			strcat_s(path, MAX_PATH, cwd);
 			strcat_s(path, MAX_PATH, "\\ShaderCache");
 			CreateDirectory(path, NULL);
@@ -162,15 +162,13 @@ void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0
 	}
 }
 
-void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
+UINT64 dumpShader(char* type, const void* pData, SIZE_T length) {
+	UINT64 crc = fnv_64_buf(pData, length);
 	FILE* f;
 	char path[MAX_PATH];
 	path[0] = 0;
 	if (length > 0) {
 		if (gl_dumpBin) {
-			UINT64 crc = fnv_64_buf(pData, length);
-			if (crc2 != 0)
-				crc = crc2;
 			strcat_s(path, MAX_PATH, cwd);
 			strcat_s(path, MAX_PATH, "\\ShaderCache");
 			CreateDirectory(path, NULL);
@@ -186,9 +184,6 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 			}
 		}
 		if (gl_dumpASM) {
-			UINT64 crc = fnv_64_buf(pData, length);
-			if (crc2 != 0)
-				crc = crc2;
 			strcat_s(path, MAX_PATH, cwd);
 			strcat_s(path, MAX_PATH, "\\ShaderCache");
 			CreateDirectory(path, NULL);
@@ -213,6 +208,7 @@ void dumpShader(char* type, const void* pData, SIZE_T length, UINT64 crc2 = 0) {
 			}
 		}
 	}
+	return crc;
 }
 #pragma endregion
 
@@ -304,8 +300,7 @@ string changeASM(vector<byte> ASM, bool left) {
 HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
 	LogInfo("CreateGraphicsPipelineState\n");
 	HRESULT hr;
-	UINT64 crc = fnv_64_buf(pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
-	dumpShader("vs", pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
+	UINT64 crc = dumpShader("vs", pDesc->VS.pShaderBytecode, pDesc->VS.BytecodeLength);
 	dumpShader("ps", pDesc->PS.pShaderBytecode, pDesc->PS.BytecodeLength);
 	dumpShader("ds", pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
 	dumpShader("gs", pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
@@ -382,10 +377,10 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 
 HRESULT STDMETHODCALLTYPE D3D12_CreateComputePipelineState(ID3D12Device* This, const D3D12_COMPUTE_PIPELINE_STATE_DESC* pDesc, const IID& riid, void** ppPipelineState) {
 	LogInfo("CreateComputePipelineState\n");
-	dumpShader("cs", pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
+	UINT64 crc = dumpShader("cs", pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
 	HRESULT hr = sCreateComputePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 	PSO pso = {};
-	pso.crc = fnv_64_buf(pDesc->CS.pShaderBytecode, pDesc->CS.BytecodeLength);
+	pso.crc = crc;
 	pso.cs = true;
 	pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
 	PSOmap[pso.Neutral] = pso;
@@ -402,10 +397,10 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 	int vsOffset = 0;
 	
 	if ((stream64[3] & 0xF) == 6) {
-		dumpShader("cs", (void*)stream64[4], stream64[5]);
+		UINT64 crc = dumpShader("cs", (void*)stream64[4], stream64[5]);
 		HRESULT hr = sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 		PSO pso = {};
-		pso.crc = fnv_64_buf((void*)stream64[4], stream64[5]);
+		pso.crc = crc;
 		pso.cs = true;
 		pso.Neutral = (ID3D12PipelineState*)*ppPipelineState;
 		PSOmap[pso.Neutral] = pso;
@@ -419,8 +414,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		vsOffset = 0;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
-		crc = fnv_64_buf(vsPtr, vsSize);
-		dumpShader("vs", vsPtr, vsSize);
+		crc = dumpShader("vs", vsPtr, vsSize);
 		dumpShader("ps", (void*)stream64[4], stream64[5]);
 		dumpShader("ds", (void*)stream64[7], stream64[8]);
 		dumpShader("gs", (void*)stream64[10], stream64[11]);
@@ -434,8 +428,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		vsOffset = 8;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
-		crc = fnv_64_buf(vsPtr, vsSize);
-		dumpShader("vs", vsPtr, vsSize);
+		crc = dumpShader("vs", vsPtr, vsSize);
 		dumpShader("ps", (void*)stream64[26], stream64[27]);
 		dumpShader("ds", (void*)stream64[23], stream64[24]);
 		dumpShader("gs", (void*)stream64[20], stream64[21]);
@@ -449,8 +442,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		vsOffset = 8;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
-		crc = fnv_64_buf(vsPtr, vsSize);
-		dumpShader("vs", vsPtr, vsSize);
+		crc = dumpShader("vs", vsPtr, vsSize);
 		dumpShader("ps", (void*)stream64[21], stream64[22]);
 		dumpShader("ds", (void*)stream64[18], stream64[19]);
 		dumpShader("gs", (void*)stream64[15], stream64[16]);
@@ -464,8 +456,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		vsOffset = 2;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
-		crc = fnv_64_buf(vsPtr, vsSize);
-		dumpShader("vs", vsPtr, vsSize);
+		crc = dumpShader("vs", vsPtr, vsSize);
 		dumpShader("ps", (void*)stream64[6], stream64[7]);
 		dumpShader("ds", (void*)stream64[9], stream64[10]);
 		dumpShader("gs", (void*)stream64[12], stream64[13]);
@@ -480,8 +471,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		vsOffset = 9;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
-		crc = fnv_64_buf(vsPtr, vsSize);
-		dumpShader("vs", vsPtr, vsSize);
+		crc = dumpShader("vs", vsPtr, vsSize);
 		dumpShader("ps", (void*)stream64[27], stream64[28]);
 		dumpShader("ds", (void*)stream64[24], stream64[25]);
 		dumpShader("gs", (void*)stream64[21], stream64[22]);
@@ -496,8 +486,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		vsOffset = 5;
 		vsPtr = (void*)stream64[vsOffset + 1];
 		vsSize = stream64[vsOffset + 2];
-		crc = fnv_64_buf(vsPtr, vsSize);
-		dumpShader("vs", vsPtr, vsSize);
+		crc = dumpShader("vs", vsPtr, vsSize);
 		dumpShader("ps", (void*)stream64[9], stream64[10]);
 		dumpShader("ds", (void*)stream64[12], stream64[13]);
 		dumpShader("gs", (void*)stream64[15], stream64[16]);
