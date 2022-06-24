@@ -1,0 +1,51 @@
+Swap PipelineState during Present.
+Before or after Present?
+Need
+CommandList
+CommandQueue
+Allocator?
+Sync? How?
+ExecuteCommandLists()
+
+PSO
+Decode PSO binary
+Find VS
+Copy PSO but replace VS with left/right
+Maybe move left/right code to  SetPipelineStage if successful
+Only in one place
+
+DXIL
+Add a few lines to perform the vertex shader calculation
+Point output to the new result?
+What can go wrong?
+
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; SV_Position              0   xyzw        0      POS   float   xyzw
+; TEXCOORD                 0   xy          1     NONE   float   xy 
+
+  %3 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %5 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+  %6 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
+
+  %9 = fadd fast float %6, -1.000000e+00
+  %10 = fmul fast float %9, 0x3FB99999A0000000
+  %11 = fadd fast float %10, %3 
+
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %11)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %4)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %5)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %6)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+
+Motion blur
+Really painful with alternative frames
+Much constant movement
+
+DLSS
+Does it work or does frames infect one another?
+
+RayTracing
+How does it work?
