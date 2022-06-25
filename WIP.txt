@@ -1,3 +1,6 @@
+Present not hooked
+Present is not always hooked leading to zero 3D.
+
 Swap PipelineState during Present.
 Before or after Present?
 Need
@@ -8,6 +11,9 @@ Sync? How?
 ExecuteCommandLists()
 
 PSO
+Shaders loaded outside CreatePipelineState
+Locate the source function and modify stereo VS.
+Third place to handle stereo VS shaders.
 Decode PSO binary
 Find VS
 Copy PSO but replace VS with left/right
