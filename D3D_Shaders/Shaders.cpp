@@ -46,7 +46,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	vector<string> lines;
 	fopen_s(&f, "gamelist.txt", "rb");
 	if (f) {
-		int fr = ::fread(gamebuffer, 1, 10000, f);
+		size_t fr = ::fread(gamebuffer, 1, 10000, f);
 		fclose(f);
 		lines = stringToLines(gamebuffer, fr);
 	}

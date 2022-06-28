@@ -9,7 +9,6 @@ static map<string, vector<DWORD>> codeBin;
 
 string convertF(DWORD original, const char* lit) {
 	char buf[80];
-	char buf2[80];
 	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff,  0xffecc800, 0x7fffff00, 0x7fff7fff, 0x7fffe000,
 		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000, 0x7fffc000, 0xfffe7960, 0xfffefffe };
 	bool bHex = false;
@@ -157,9 +156,9 @@ string assembleAndCompare(string s, vector<DWORD> v) {
 		s.erase(s.begin());
 		numSpaces++;
 	}
-	int lastStart = 0;
-	int lastLiteral = 0;
-	int lastEnd = 0;
+	size_t lastStart = 0;
+	size_t lastLiteral = 0;
+	size_t lastEnd = 0;
 	vector<DWORD> v2 = assembleIns(s);
 	string sNew = s;
 	string s3;
@@ -287,7 +286,7 @@ string assembleAndCompare(string s, vector<DWORD> v) {
 vector<byte> disassembler(vector<byte> buffer) {
 	vector<byte> ret;
 	char* asmBuffer = nullptr;
-	int asmSize = 0;
+	size_t asmSize = 0;
 	ID3DBlob* pDissassembly;
 	HRESULT hr = D3DDisassemble(buffer.data(), buffer.size(), 0, NULL, &pDissassembly);
 	if (hr == S_OK) {
@@ -397,7 +396,7 @@ vector<byte> disassembler(vector<byte> buffer) {
 				}
 				string sNew = assembleAndCompare(s, v);
 				auto sLines = stringToLines(sNew.c_str(), sNew.size());
-				int startLine = i - sLines.size() + 1;
+				size_t startLine = i - sLines.size() + 1;
 				for (size_t j = 0; j < sLines.size(); j++) {
 					lines[startLine + j] = sLines[j];
 				}
@@ -707,7 +706,7 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 		tOp->comps_enum = 2;
 
 		if (s.find("[") < s.size()) {
-			int pos = s.find("[");
+			size_t pos = s.find("[");
 			string sNum = s.substr(0, pos);
 			if (sNum.size() > 0) {
 				int num = atoi(sNum.c_str());
@@ -716,11 +715,11 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 			}
 			tOp->sel = 0xE4;
 			tOp->mode = 1;
-			int pos2 = s.find_first_of("]");
+			size_t pos2 = s.find_first_of("]");
 			string index = s.substr(pos + 1, pos2 - pos - 1);
 			if (index.find(":") < index.size()) {
 				tOp->num_indices++;
-				int colon = index.find(":");
+				size_t colon = index.find(":");
 				string idx1 = index.substr(0, colon);
 				string idx2 = index.substr(colon + 1);
 
@@ -736,7 +735,7 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 				}
 			}
 			else if (index.find("+") < index.size()) {
-				int plusPos = index.find("+");
+				size_t plusPos = index.find("+");
 				string sOp = index.substr(0, plusPos - 1);
 				string sAdd = index.substr(plusPos + 2);
 				int iAdd = atoi(sAdd.c_str());
@@ -796,7 +795,7 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 				}
 			}
 			if (s.find("].") < s.size()) {
-				int pos = s.find("].");
+				size_t pos = s.find("].");
 				string swizzle = s.substr(pos + 2);
 				handleSwizzle(swizzle, tOp, special);
 			}
@@ -1322,7 +1321,7 @@ vector<DWORD> assembleIns(string s) {
 			ins->_11_23 |= 0;
 		ins->length = 1;
 		for (size_t i = 0; i < Os.size(); i++)
-			ins->length += Os[i].size();
+			ins->length += (UINT)Os[i].size();
 		v.push_back(op);
 		for (size_t i = 0; i < Os.size(); i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
@@ -1365,7 +1364,7 @@ vector<DWORD> assembleIns(string s) {
 		if (vIns[2] != 0)
 			ins->extended = 1;
 		for (int i = 0; i < numOps; i++)
-			ins->length += Os[i].size();
+			ins->length += (UINT)Os[i].size();
 		v.push_back(op);
 		if (vIns[2] == 3)
 			v.push_back(parseAoffimmi(0x80000001, w[1]));
@@ -2115,7 +2114,7 @@ vector<string> stringToLines(const char* start, size_t size) {
 	return lines;
 }
 
-vector<DWORD> ComputeHash(byte const* input, size_t size) {
+vector<DWORD> ComputeHash(byte const* input, DWORD size) {
 	DWORD esi;
 	DWORD ebx;
 	DWORD i = 0;
@@ -2362,7 +2361,7 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 		ComPtr<IDxcAssembler> pAssembler;
 		DxcCreateInstance(CLSID_DxcAssembler, IID_PPV_ARGS(pAssembler.GetAddressOf()));
 		ComPtr<IDxcBlobEncoding> pSource;
-		pUtils->CreateBlob(asmFile.data(), asmFile.size(), CP_ACP, pSource.GetAddressOf());
+		pUtils->CreateBlob(asmFile.data(), (DWORD)asmFile.size(), CP_ACP, pSource.GetAddressOf());
 		ComPtr<IDxcOperationResult> pRes;
 		HRESULT hr = pAssembler->AssembleToContainer(pSource.Get(), pRes.GetAddressOf());
 		if (hr == S_OK) {
@@ -2451,10 +2450,10 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 	DWORD newCodeSize = 4 * (DWORD)o.size();
 	codeStart[1] = newCodeSize;
 	vector<byte> newCode(newCodeSize);
-	o[1] = o.size();
+	o[1] = (DWORD)o.size();
 	for (int i = 0; i < o.size(); i++) {
-		if (o[i] == 0x12404001) o[i] == 0x00004001;
-		if (o[i] == 0x12404002) o[i] == 0x00004002;
+		if (o[i] == 0x12404001) o[i] = 0x00004001;
+		if (o[i] == 0x12404002) o[i] = 0x00004002;
 	}
 	memcpy(newCode.data(), o.data(), newCodeSize);
 	it = buffer.begin() + chunkOffsets[codeChunk] + 8;
@@ -2464,8 +2463,8 @@ vector<byte> assembler(vector<byte> asmFile, vector<byte> buffer) {
 		dwordBuffer[8 + i] += newCodeSize - codeSize;
 	}
 
-	dwordBuffer[6] = buffer.size();
-	vector<DWORD> hash = ComputeHash((byte const*)buffer.data() + 20, buffer.size() - 20);
+	dwordBuffer[6] = (DWORD)buffer.size();
+	vector<DWORD> hash = ComputeHash((byte const*)buffer.data() + 20, (DWORD)buffer.size() - 20);
 	dwordBuffer[1] = hash[0];
 	dwordBuffer[2] = hash[1];
 	dwordBuffer[3] = hash[2];
