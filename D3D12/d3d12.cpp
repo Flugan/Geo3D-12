@@ -33,7 +33,7 @@ float gFinalSep;
 
 // 64 bit magic FNV-0 and FNV-1 prime
 #define FNV_64_PRIME ((UINT64)0x100000001b3ULL)
-static UINT64 fnv_64_buf(const void* buf, size_t len)
+static UINT64 fnv_64_buf(const void* buf, DWORD64 len)
 {
 	UINT64 hval = 0;
 	unsigned const char* bp = (unsigned const char*)buf;	/* start of buffer */
@@ -162,7 +162,7 @@ void dumpShaderRAW(char* type, const void* pData, SIZE_T length, UINT64 crc) {
 	}
 }
 
-UINT64 dumpShader(char* type, const void* pData, SIZE_T length) {
+UINT64 dumpShader(char* type, const void* pData, DWORD64 length) {
 	UINT64 crc = fnv_64_buf(pData, length);
 	FILE* f;
 	char path[MAX_PATH];
@@ -193,7 +193,7 @@ UINT64 dumpShader(char* type, const void* pData, SIZE_T length) {
 			if (!fileExists(path)) {
 				vector<byte> v;
 				byte* bArray = (byte*)pData;
-				for (int i = 0; i < length; i++) {
+				for (size_t i = 0; i < length; i++) {
 					v.push_back(bArray[i]);
 				}
 				auto ASM = disassembler(v);
@@ -222,7 +222,7 @@ string changeASM(vector<byte> ASM, bool left) {
 	bool dcl = false;
 	bool dcl_ICB = false;
 	int temp = 0;
-	for (int i = 0; i < lines.size(); i++) {
+	for (size_t i = 0; i < lines.size(); i++) {
 		string s = lines[i];
 		if (s.find("dcl") == 0) {
 			dcl = true;
@@ -275,7 +275,7 @@ string changeASM(vector<byte> ASM, bool left) {
 			auto pos = s.find(oReg);
 			if (pos != string::npos) {
 				string reg = "r" + to_string(temp - 1);
-				for (int i = 0; i < s.size(); i++) {
+				for (size_t i = 0; i < s.size(); i++) {
 					if (i < pos) {
 						shader += s[i];
 					}
@@ -311,7 +311,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 
 	vector<byte> v;
 	byte* bArray = (byte*)pDesc->VS.pShaderBytecode;
-	for (int i = 0; i < pDesc->VS.BytecodeLength; i++) {
+	for (size_t i = 0; i < pDesc->VS.BytecodeLength; i++) {
 		v.push_back(bArray[i]);
 	}
 	vector<byte> ASM = disassembler(v);
@@ -351,7 +351,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC* modDesc = (D3D12_GRAPHICS_PIPELINE_STATE_DESC*)pDesc;
 	
 	a.clear();
-	for (int i = 0; i < shaderL.length(); i++) {
+	for (size_t i = 0; i < shaderL.length(); i++) {
 		a.push_back(shaderL[i]);
 	}
 	dumpShaderRAW("vsLeft", a.data(), a.size(), crc);
@@ -362,7 +362,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	pso.Left = (ID3D12PipelineState*)*ppPipelineState;
 
 	a.clear();
-	for (int i = 0; i < shaderR.length(); i++) {
+	for (size_t i = 0; i < shaderR.length(); i++) {
 		a.push_back(shaderR[i]);
 	}
 	dumpShaderRAW("vsRight", a.data(), a.size(), crc);
@@ -535,7 +535,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 	pso.crc = crc;
 
 	a.clear();
-	for (int i = 0; i < shaderL.length(); i++) {
+	for (size_t i = 0; i < shaderL.length(); i++) {
 		a.push_back(shaderL[i]);
 	}
 	dumpShaderRAW("vsLeft", a.data(), a.size(), crc);
@@ -546,7 +546,7 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 	pso.Left = (ID3D12PipelineState*)*ppPipelineState;
 	
 	a.clear();
-	for (int i = 0; i < shaderR.length(); i++) {
+	for (size_t i = 0; i < shaderR.length(); i++) {
 		a.push_back(shaderR[i]);
 	}
 	dumpShaderRAW("vsRight", a.data(), a.size(), crc);
