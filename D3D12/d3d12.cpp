@@ -17,6 +17,7 @@ UINT64				gl_GraphicsCommandList1_hooked = 0;
 bool				gl_left = true;
 FILE*				LogFile = NULL;
 bool				gl_log = false;
+bool				gl_dumpOnly = false;
 bool				gl_dumpBin = false;
 bool				gl_dumpASM = false;
 bool				gl_dumpRAW = false;
@@ -68,6 +69,8 @@ void readINI() {
 	}
 
 	gl_log = GetPrivateProfileInt("Dump", "log", gl_log, iniFile) > 0;
+
+	gl_dumpOnly = GetPrivateProfileInt("Dump", "only", gl_dumpOnly, iniFile) > 0;
 
 	gl_dumpBin = GetPrivateProfileInt("Dump", "bin", gl_dumpBin, iniFile) > 0;
 
@@ -305,6 +308,8 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	dumpShader("ds", pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
 	dumpShader("gs", pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
 	dumpShader("hs", pDesc->HS.pShaderBytecode, pDesc->HS.BytecodeLength);
+	if (gl_dumpOnly)
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 	// Removed due to Hellblade, ok solution for now
 	if (crc == 0xF66E2C466DD0C233)
 		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
@@ -496,6 +501,8 @@ HRESULT STDMETHODCALLTYPE D3D12_CreatePipelineState(ID3D12Device2* This, const D
 		dumpShader("CPS", pDesc->pPipelineStateSubobjectStream, pDesc->SizeInBytes);
 		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 	}
+	if (gl_dumpOnly)
+		return sCreatePipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 
 	vector<byte> v;
 	byte* bArray = (byte*)vsPtr;
@@ -652,6 +659,8 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChain(IDXGIFactory* This, IUnknown* pDe
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
 		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[22];
+		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
 	}
 	return hr;
 }
