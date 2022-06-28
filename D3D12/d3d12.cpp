@@ -665,7 +665,7 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForHWND(IDXGIFactory2* This, IUnkn
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
 		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
-		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[22];
 		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
 	}
 	return hr;
@@ -680,7 +680,7 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForCoreWindow(IDXGIFactory2* This,
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
 		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
-		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[22];
 		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
 	}
 	return hr;
@@ -695,7 +695,7 @@ HRESULT STDMETHODCALLTYPE DXGI_CreateSwapChainForComposition(IDXGIFactory2* This
 
 		DXGI_Present origPresent = (DXGI_Present)(*vTable)[8];
 		cHookMgr.Hook(&(sDXGI_Present_Hook.nHookId), (LPVOID*)&(sDXGI_Present_Hook.fn), origPresent, DXGIH_Present);
-		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[23];
+		DXGI_Present1 origPresent1 = (DXGI_Present1)(*vTable)[22];
 		cHookMgr.Hook(&(sDXGI_Present1_Hook.nHookId), (LPVOID*)&(sDXGI_Present1_Hook.fn), origPresent1, DXGIH_Present1);
 	}
 	return hr;
