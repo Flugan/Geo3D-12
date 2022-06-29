@@ -75,6 +75,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		auto BIN = readFile(fileName);
 		LeaveCriticalSection(&gl_CS);
 		auto ASM = disassembler(BIN);
+		/*
 		vector<byte> CBO = assembler(ASM, BIN);
 		bool valid = true;
 		if (CBO.size() == BIN.size()) {
@@ -119,7 +120,10 @@ int _tmain(int argc, _TCHAR* argv[])
 			LeaveCriticalSection(&gl_CS);
 			continue;
 		}
-		/*
+
+
+
+
 		fileName.erase(fileName.size() - 3, 3);
 		fileName.append("fail.txt");
 		if (!valid) {
