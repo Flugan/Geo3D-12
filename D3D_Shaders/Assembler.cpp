@@ -10,7 +10,8 @@ static map<string, vector<DWORD>> codeBin;
 string convertF(DWORD original, const char* lit) {
 	char buf[80];
 	vector<DWORD> hex = { 0x7fc00000, 0xffc00000, 0xffff0000, 0x0000ffff, 0x7fffffff,  0xffecc800, 0x7fffff00, 0x7fff7fff, 0x7fffe000,
-		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000, 0x7fffc000, 0xfffe7960, 0xfffefffe };
+		0xffaa5501, 0xffaa5500, 0xffc10000, 0x7fc10000, 0xfffeffff, 0xffe699f1, 0xfffe4000, 0x120000, 0x20000, 0x7fffc000, 0xfffe7960,
+		0xfffefffe, 0x7f83cdd0, 0xfffe0ce3 };
 	bool bHex = false;
 	for (int i = 0; i < hex.size(); i++) {
 		if (original == hex[i]) {
@@ -536,6 +537,12 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 		tOp->extended = 1;
 		ext |= 0x14001;
 	}
+	pos = s.find(" {min16i}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x10001;
+	}
 	pos = s.find(" {min16f as def32}");
 	if (pos < s.size()) {
 		s = s.substr(0, pos);
@@ -548,11 +555,21 @@ vector<DWORD> assembleOp(string s, bool special = false) {
 		tOp->extended = 1;
 		ext |= 0x14001;
 	}
+	pos = s.find(" {min16u as min16i}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+		tOp->extended = 1;
+		ext |= 0x14001;
+	}
 	pos = s.find(" {def32 as min16f}");
 	if (pos < s.size()) {
 		s = s.substr(0, pos);
 	}
 	pos = s.find(" {def32 as min16u}");
+	if (pos < s.size()) {
+		s = s.substr(0, pos);
+	}
+	pos = s.find(" {def32 as min16i}");
 	if (pos < s.size()) {
 		s = s.substr(0, pos);
 	}
@@ -1068,6 +1085,7 @@ map<string, vector<int>> insMap = {
 	{ "imm_atomic_iadd", { 4, 180 } },
 	{ "imm_atomic_consume", { 2, 179 } },
 	{ "imm_atomic_umax", { 4, 188 } },
+	{ "imm_atomic_umin", { 4, 189 } },
 	{ "atomic_iadd", { 3, 173, 0 } },
 	{ "ld_raw", { 3, 165 } },
 	{ "store_raw", { 3, 166 } },
@@ -1083,6 +1101,7 @@ map<string, vector<int>> insMap = {
 	{ "dcl_thread_group", { 3, 155 } },
 	{ "firstbit_lo", { 2, 136 } },
 	{ "firstbit_hi", { 2, 135 } },
+	{ "firstbit_shi", { 2, 137 } },
 	{ "ibfe", { 4, 139 } },
 	{ "lod", { 4, 108 } },
 	{ "samplepos", { 3, 110 } },
@@ -1254,6 +1273,10 @@ vector<DWORD> assembleIns(string s) {
 					offset += 1;
 					sOp += " {min16u}";
 				}
+				if (w[offsetSpace + 1] == "{min16i}") {
+					offset += 1;
+					sOp += " {min16i}";
+				}
 			}
 			if (offsetSpace + 3 < w.size()) {
 				if (w[offsetSpace + 1] == "{" &&
@@ -1286,6 +1309,12 @@ vector<DWORD> assembleIns(string s) {
 					offset += 3;
 					sOp += " {def32 as min16u}|";
 				}
+				if (w[offsetSpace + 1] == "{def32" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16i}") {
+					offset += 3;
+					sOp += " {def32 as min16i}";
+				}
 				if (w[offsetSpace + 1] == "{min16f" &&
 					w[offsetSpace + 2] == "as" &&
 					w[offsetSpace + 3] == "def32}") {
@@ -1310,6 +1339,12 @@ vector<DWORD> assembleIns(string s) {
 					offset += 3;
 					sOp += " {min16u as def32}|";
 				}
+				if (w[offsetSpace + 1] == "{min16u" &&
+					w[offsetSpace + 2] == "as" &&
+					w[offsetSpace + 3] == "min16i}") {
+					offset += 3;
+					sOp += " {min16u as min16i}";
+				}
 			}
 			Os.push_back(assembleOp(sOp, i < numSpecial));
 		}
@@ -1322,9 +1357,13 @@ vector<DWORD> assembleIns(string s) {
 		ins->length = 1;
 		for (size_t i = 0; i < Os.size(); i++)
 			ins->length += (UINT)Os[i].size();
+		if (o == "samplepos")
+			ins->length++;
 		v.push_back(op);
 		for (size_t i = 0; i < Os.size(); i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
+		if (o == "samplepos")
+			v.push_back(0);
 	}
 	else if (ldMap.find(o) != ldMap.end()) {
 		vector<int> vIns = ldMap[o];
@@ -1347,6 +1386,10 @@ vector<DWORD> assembleIns(string s) {
 				if (w[offsetSpace + 1] == "{min16u}") {
 					offset += 1;
 					sOp += " {min16u}";
+				}
+				if (w[offsetSpace + 1] == "{min16i}") {
+					offset += 1;
+					sOp += " {min16i}";
 				}
 			}
 			if (offsetSpace + 3 < w.size()) {
@@ -1438,6 +1481,18 @@ vector<DWORD> assembleIns(string s) {
 	} else if (o == "dcl_uav_structured") {
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 158;
+		v.insert(v.end(), os.begin(), os.end());
+		v.push_back(atoi(w[2].c_str()));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
+		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
+	} else if (o == "dcl_uav_structured_glc") {
+		vector<DWORD> os = assembleOp(w[1], true);
+		ins->opcode = 158;
+		ins->_11_23 = 32;
 		v.insert(v.end(), os.begin(), os.end());
 		v.push_back(atoi(w[2].c_str()));
 		if (w.size() > 3) {
@@ -1608,6 +1663,18 @@ vector<DWORD> assembleIns(string s) {
 		}
 		ins->length = 1 + v.size();
 		v.insert(v.begin(), op);
+	} else if (o == "dcl_uav_typed_texture2d_glc") {
+		vector<DWORD> os = assembleOp(w[2], true);
+		ins->opcode = 156;
+		ins->_11_23 = 35;
+		v.insert(v.end(), os.begin(), os.end());
+		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
+		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
 	} else if (o == "dcl_uav_typed_texture2d_rov") {
 		vector<DWORD> os = assembleOp(w[2], true);
 		ins->opcode = 156;
@@ -1636,7 +1703,18 @@ vector<DWORD> assembleIns(string s) {
 		vector<DWORD> os = assembleOp(w[2], true);
 		ins->opcode = 156;
 		ins->_11_23 = 8;
-		ins->length = 4;
+		v.insert(v.end(), os.begin(), os.end());
+		v.push_back(toLD(w[1]));
+		if (w.size() > 3) {
+			if (w[3].find("space=") == 0)
+				v.push_back(atoi(w[3].substr(6).c_str()));
+		}
+		ins->length = 1 + v.size();
+		v.insert(v.begin(), op);
+	} else if (o == "dcl_uav_typed_texture2darray_glc") {
+		vector<DWORD> os = assembleOp(w[2], true);
+		ins->opcode = 156;
+		ins->_11_23 = 40;
 		v.insert(v.end(), os.begin(), os.end());
 		v.push_back(toLD(w[1]));
 		if (w.size() > 3) {
@@ -2033,6 +2111,8 @@ vector<DWORD> assembleIns(string s) {
 			ins->_11_23 = 2;
 		else if (w[1] == "triangle")
 			ins->_11_23 = 3;
+		else if (w[1] == "lineadj")
+			ins->_11_23 = 6;
 		else if (w[1] == "triangleadj")
 			ins->_11_23 = 7;
 		v.push_back(op);
