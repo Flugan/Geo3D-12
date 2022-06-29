@@ -308,8 +308,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	dumpShader("ds", pDesc->DS.pShaderBytecode, pDesc->DS.BytecodeLength);
 	dumpShader("gs", pDesc->GS.pShaderBytecode, pDesc->GS.BytecodeLength);
 	dumpShader("hs", pDesc->HS.pShaderBytecode, pDesc->HS.BytecodeLength);
-	if (gl_dumpOnly)
-		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 	// Removed due to Hellblade, ok solution for now
 	if (crc == 0xF66E2C466DD0C233)
 		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
@@ -349,6 +347,10 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 		PSOmap[pso.Neutral] = pso;
 		return hr;
 	}
+	dumpShaderRAW("vsLeft", shaderL.data(), shaderL.size(), crc);
+	dumpShaderRAW("vsRight", shaderR.data(), shaderR.size(), crc);
+	if (gl_dumpOnly)
+		return sCreateGraphicsPipelineState_Hook.fn(This, pDesc, riid, ppPipelineState);
 
 	vector<byte> a;
 	PSO pso = {};
@@ -359,7 +361,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	for (size_t i = 0; i < shaderL.length(); i++) {
 		a.push_back(shaderL[i]);
 	}
-	dumpShaderRAW("vsLeft", a.data(), a.size(), crc);
 	auto compiled = assembler(a, v);
 	modDesc->VS.pShaderBytecode = compiled.data();
 	modDesc->VS.BytecodeLength = compiled.size(); 
@@ -370,7 +371,6 @@ HRESULT STDMETHODCALLTYPE D3D12_CreateGraphicsPipelineState(ID3D12Device* This, 
 	for (size_t i = 0; i < shaderR.length(); i++) {
 		a.push_back(shaderR[i]);
 	}
-	dumpShaderRAW("vsRight", a.data(), a.size(), crc);
 	compiled = assembler(a, v);
 	modDesc->VS.pShaderBytecode = compiled.data();
 	modDesc->VS.BytecodeLength = compiled.size();
