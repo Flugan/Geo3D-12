@@ -1,24 +1,16 @@
-;Shader model 6
+S:\SteamLibrary\steamapps\common\ForzaHorizon4\
+c:\Flugan\Age of Empires IV\
 c:\Flugan\Alan Wake Remastered\
-c:\Flugan\Cyberpunk 2077\
-c:\Flugan\Deathloop\
-c:\Flugan\Elden Ring\
-c:\Flugan\Far Cry 6\
-c:\Flugan\F1 2021\
-c:\Flugan\Forza Horizon 5\
-c:\Flugan\Horizon Zero Dawn\
-c:\Flugan\Marvel's Guardians of the Galaxy\
-c:\Flugan\Metro Exodus Enhanced Edition\
-c:\Flugan\Red Dead Redemption 2\
-c:\Flugan\Resident Evil Village\
-c:\Flugan\Star Wars Battlefront 2\
-
-;Shader model 5.1
+c:\Flugan\Aliens; Fireteam Elite\
 c:\Flugan\Amid Evil\
+c:\Flugan\Anno 1800\
 c:\Flugan\Aron's Adventure\
 c:\Flugan\Ashes of the Singularity Escalation\
+c:\Flugan\Assassin's Creed Valhalla\
+c:\Flugan\Backbone\
 c:\Flugan\Battlefield 1\
 c:\Flugan\Battlefield V\
+c:\Flugan\Battlezone\
 c:\Flugan\BIOMUTANT\
 c:\Flugan\Borderlands 3\
 c:\Flugan\Breathedge\
@@ -27,44 +19,97 @@ c:\Flugan\Bright Memory Infinite\
 c:\Flugan\Chernobylite\
 c:\Flugan\Chorus\
 c:\Flugan\Control\
+c:\Flugan\Cyberpunk 2077\
 c:\Flugan\Death Stranding\
+c:\Flugan\Death Stranding Director's Cut\
+c:\Flugan\Deathloop\
+c:\Flugan\Deep Rock Galactic\
 c:\Flugan\Deliver Us the Moon\
 c:\Flugan\Delores\
 c:\Flugan\Deus Ex Breach\
 c:\Flugan\Deus Ex Mankind Divided\
 c:\Flugan\Devil May Cry 5\
+c:\Flugan\Diablo II Resurrected\
+c:\Flugan\DIRT 5\
 c:\Flugan\Dying Light 2\
+c:\Flugan\Elden Ring\
+c:\Flugan\Evil Genius 2; World Domination\
 c:\Flugan\F1 2018\
+c:\Flugan\F1 2021\
+c:\Flugan\Far Cry 6\
+c:\Flugan\Farming Simulator 22\
 c:\Flugan\FIFA18\
 c:\Flugan\FIFA20\
+c:\Flugan\FIFA21\
 c:\Flugan\FIFA22\
+c:\Flugan\Final Fantasy VII Remake\
 c:\Flugan\FIST\
-c:\Flugan\Forza Horizon 4\
+c:\Flugan\Flight Simulator\
+c:\Flugan\Forza Horizon 5\
 c:\Flugan\Ghostrunner\
+c:\Flugan\Ghostwire; Tokyo\
 c:\Flugan\Godfall\
+c:\Flugan\GRAVEN\
+c:\Flugan\Grid (2019)\
+c:\Flugan\Grid Legends\
 c:\Flugan\hellblade\
-c:\Flugan\Hitman\
+c:\Flugan\HITMAN\
 c:\Flugan\HITMAN 2\
+c:\Flugan\HITMAN 3\
+c:\Flugan\Horizon Zero Dawn\
 c:\Flugan\It Takes Two\
 c:\Flugan\Kena Bridge of Spirits\
+c:\Flugan\KINGDOM HEARTS FINAL MIX\
+c:\Flugan\LEGO Builder's Journey\
+c:\Flugan\Lemnis Gate\
+c:\Flugan\Life Is Strange; True Colors\
+c:\Flugan\Little Nightmares II Enhanced Edition\
+c:\Flugan\Madden NFL 21\
 c:\Flugan\Madden NFL 22\
+c:\Flugan\Martha is Dead\
+c:\Flugan\Marvel's Avengers\
+c:\Flugan\Marvel's Guardians of the Galaxy\
+c:\Flugan\MechWarrior 5; Mercenaries\
 c:\Flugan\Metro Exodus\
+c:\Flugan\Metro Exodus Enhanced Edition\
+c:\Flugan\Monster Hunter Rise\
 c:\Flugan\Mortal Kombat 11\
 c:\Flugan\Mortal Shell\
 c:\Flugan\Myst\
+c:\Flugan\Observer; System Redux\
+c:\Flugan\Paradise Killer\
+c:\Flugan\Path of Exile\
+c:\Flugan\Psychonauts 2\
+c:\Flugan\Pumpkin Jack\
+c:\Flugan\Q.U.B.E. 2\
+c:\Flugan\Red Dead Redemption 2\
 c:\Flugan\Resident Evil 2\
 c:\Flugan\Resident Evil 3\
+c:\Flugan\Resident Evil 7\
+c:\Flugan\Resident Evil Village\
 c:\Flugan\Rise of the Tomb Raider\
+c:\Flugan\Scarlet Mexus\
 c:\Flugan\Serious Sam Fusion\
 c:\Flugan\Severed Steel\
 c:\Flugan\Shadow of the Tomb Raider\
+c:\Flugan\Sherlock Holmes Chapter One\
 c:\Flugan\Sid Meier's Civilization VI\
 c:\Flugan\Sniper Elite 4\
+c:\Flugan\Star Wars Battlefront 2\
 c:\Flugan\Strange Brigade\
 c:\Flugan\Tetris Effect\
+c:\Flugan\The Ascent\
+c:\Flugan\The Dark Pictures Anthology; Man of Medan\
 c:\Flugan\The Fabled Woods\
+c:\Flugan\The Forgotten City\
+c:\Flugan\The Gunk\
 c:\Flugan\The Medium\
+c:\Flugan\The Riftbreaker\
 c:\Flugan\The Talos Principle\
 c:\Flugan\The Turing Test\
+c:\Flugan\Tiny Tina's Wonderlands\
 c:\Flugan\Tom Clancy's The Division\
+c:\Flugan\Total War; WARHAMMER\
+c:\Flugan\Total War; WARHAMMER II\
 c:\Flugan\WRC10\
+c:\Flugan\Zombie Army 4; Dead War\
